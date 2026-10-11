@@ -1,0 +1,8 @@
+{
+  "name": "Ns Tuition Fee Collection",
+  "description": "Tuition fee collection and student payment management app with batch tracking, monthly status, receipts, and reports.",
+  "requestFrame": "none",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

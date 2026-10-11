@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="bn">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,maximum-scale=1"
+  >
+
+  <meta name="theme-color" content="#2563eb">
+
+  <title>Ns Tuition Fee Collection</title>
+
+  <link
+    rel="stylesheet"
+    href="css/tailwind.css"
+  >
+</head>
+
+
+<body class="bg-slate-50 text-slate-800">
+
+  <!-- ======================================================
+       MAIN APP CONTAINER
+       ====================================================== -->
+
+  <div id="app"></div>
+
+
+  <!-- ======================================================
+       CORE
+       ====================================================== -->
+
+  <script src="js/storage.js"></script>
+
+  <script src="js/utils.js"></script>
+
+  <script src="js/app.js"></script>
+
+
+  <!-- ======================================================
+       DATA / PAGE MODULES
+
+       Loading order গুরুত্বপূর্ণ:
+
+       1. StudentModule
+       2. BatchModule
+       3. PaymentModule
+       4. Payment Actions
+       5. Receipt
+       6. Reports
+       7. Home
+       8. Backup
+
+       কারণ পরের module-গুলো আগের module-এর
+       function ব্যবহার করতে পারে।
+       ====================================================== -->
+
+  <!-- Students -->
+  <script src="pages/students/students.js"></script>
+
+  <!-- Batches -->
+  <script src="pages/batches/batches.js"></script>
+
+  <!-- Payments -->
+  <script src="pages/payments/payments.js"></script>
+
+  <!-- Payment Actions -->
+  <script src="pages/payments/payment-actions.js"></script>
+
+  <!-- Receipt -->
+  <script src="pages/receipt/receipt.js"></script>
+
+  <!-- Reports -->
+  <script src="pages/reports/reports.js"></script>
+
+
+  <!-- ======================================================
+       HOME
+
+       Home সব data/page module load হওয়ার পরে
+       load হবে।
+
+       Home design অপরিবর্তিত রাখা হয়েছে।
+       ====================================================== -->
+
+  <script src="pages/home/home.js"></script>
+
+
+  <!-- ======================================================
+       BACKUP
+
+       Backup একদম শেষে load হবে।
+
+       কারণ backup.js:
+       - APP ব্যবহার করে
+       - APP.go override করে
+       - APP.render override করে
+       - BackupModule তৈরি করে
+
+       তাই app.js এবং অন্যান্য page module
+       load হওয়ার পরে এটি load করা হবে।
+       ====================================================== -->
+
+  <script src="pages/backup/backup.js"></script>
+  
+  
+  <!-- Automatic Google Drive Backup -->
+  <script src="js/auto-backup.js"></script>
+
+
+</body>
+
+</html>

@@ -1,0 +1,100 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Local fallback utilities used by the first Android preview. */
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:Arial,"Noto Sans Bengali",sans-serif}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.container{max-width:760px;margin:auto;padding:14px}
+.bg-slate-50{background:#f8fafc}.bg-white{background:#fff}
+.text-white{color:#fff}.text-slate-500{color:#64748b}.text-slate-700{color:#334155}
+.text-blue-600{color:#2563eb}.text-red-600{color:#dc2626}.text-green-600{color:#16a34a}
+.font-bold{font-weight:700}.font-extrabold{font-weight:800}
+.text-sm{font-size:14px}.text-xs{font-size:12px}.text-xl{font-size:20px}.text-2xl{font-size:24px}
+.p-3{padding:12px}.p-4{padding:16px}.px-3{padding-left:12px;padding-right:12px}.py-2{padding-top:8px;padding-bottom:8px}
+.mt-2{margin-top:8px}.mt-3{margin-top:12px}.mb-2{margin-bottom:8px}.mb-3{margin-bottom:12px}
+.flex{display:flex}.grid{display:grid}.items-center{align-items:center}.justify-between{justify-content:space-between}
+.gap-2{gap:8px}.gap-3{gap:12px}.w-full{width:100%}.flex-1{flex:1}
+.grid-2{grid-template-columns:repeat(2,1fr)}
+.rounded-xl{border-radius:14px}.rounded-2xl{border-radius:18px}
+.border{border:1px solid #e2e8f0}.shadow-sm{box-shadow:0 3px 12px rgba(15,23,42,.05)}
+.overflow-auto{overflow:auto}
+.btn{border:0;border-radius:11px;padding:10px 13px;font-weight:700}
+.btn-primary{background:#2563eb;color:#fff}.btn-soft{background:#eff6ff;color:#2563eb}
+.btn-danger{background:#fee2e2;color:#b91c1c}.btn-green{background:#dcfce7;color:#15803d}
+.input,.select,.textarea{width:100%;border:1px solid #e2e8f0;background:#fff;border-radius:11px;padding:11px 12px;outline:none}
+.input:focus,.select:focus,.textarea:focus{border-color:#2563eb}
+.topbar{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;padding:18px 16px 20px;border-radius:0 0 22px 22px}
+.brand{font-size:21px;font-weight:800}.sub{font-size:12px;opacity:.85;margin-top:3px}
+.monthbar{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#eff6ff;padding:9px;border-radius:13px}
+.monthname{text-align:center;flex:1;font-weight:800}
+.stat{min-height:105px}.statlabel{font-size:12px;color:#64748b}.statvalue{font-size:24px;font-weight:800;margin-top:8px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;box-shadow:0 3px 12px rgba(15,23,42,.04)}
+.sectionhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:18px 0 9px}
+.sectionhead h3{margin:0;font-size:16px}
+.row{display:flex;align-items:center;gap:10px;padding:11px 4px;border-bottom:1px solid #e2e8f0}
+.row:last-child{border-bottom:0}
+.status{display:inline-flex;padding:5px 8px;border-radius:999px;font-size:11px;font-weight:800}
+.status-paid{background:#dcfce7;color:#15803d}.status-partial{background:#fef3c7;color:#b45309}.status-due{background:#fee2e2;color:#b91c1c}
+.nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e8f0;z-index:10}
+.navin{max-width:760px;margin:auto;display:grid;grid-template-columns:repeat(4,1fr)}
+.nav button{border:0;background:#fff;color:#64748b;padding:9px 4px 10px;font-size:11px}
+.nav button.active{color:#2563eb;font-weight:800}.navicon{display:block;font-size:19px;margin-bottom:2px}
+.modalback{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:20;display:flex;align-items:flex-end}
+.modal{background:#fff;width:100%;max-width:760px;margin:auto 0 0;border-radius:20px 20px 0 0;padding:18px;max-height:88vh;overflow:auto}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.full{grid-column:1/-1}.label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}
+.table{width:100%;border-collapse:collapse;min-width:560px}.table th,.table td{padding:9px 7px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:12px}
+.table th{color:#64748b;font-size:11px}.tablewrap{overflow-x:auto}
+.empty{text-align:center;color:#64748b;padding:28px 10px}
+.receipt{background:#fff;border:1px dashed #94a3b8;padding:20px;border-radius:12px}
+.receipt h2{text-align:center;margin:0}.center{text-align:center}
+.bottomspace{padding-bottom:80px}
+@media(max-width:430px){.formgrid{grid-template-columns:1fr}.full{grid-column:auto}}
+@media(min-width:700px){.modal{margin:auto;border-radius:20px}}
+@media print{.topbar,.nav,.no-print{display:none!important}body{background:#fff}.container{padding:0}.receipt{border:0}}
+
+/* Phase 2: polished mobile UI */
+.app-header{position:sticky;top:0;z-index:8}
+.hero-card{background:linear-gradient(135deg,#2563eb,#1e40af);color:#fff;border:0;box-shadow:0 10px 28px rgba(37,99,235,.22)}
+.hero-number{font-size:30px;font-weight:800;line-height:1.1;margin-top:6px}
+.quick-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.quick-action{display:flex;align-items:center;gap:10px;padding:13px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;text-align:left}
+.quick-icon{width:40px;height:40px;display:grid;place-items:center;border-radius:12px;background:#eff6ff;font-size:20px}
+.profile-head{display:flex;align-items:center;gap:12px}
+.avatar{width:52px;height:52px;border-radius:16px;background:#dbeafe;color:#1d4ed8;display:grid;place-items:center;font-weight:800;font-size:20px}
+.filter-pills{display:flex;gap:7px;overflow:auto;padding-bottom:3px}
+.pill{white-space:nowrap;border:1px solid #dbe4ef;background:#fff;border-radius:999px;padding:7px 11px;font-size:12px}
+.pill.active{background:#2563eb;color:#fff;border-color:#2563eb}
+.progress{height:7px;background:#e2e8f0;border-radius:99px;overflow:hidden}.progress>span{display:block;height:100%;background:#2563eb;border-radius:99px}
+.action-icon{border:0;background:#eff6ff;color:#2563eb;width:38px;height:38px;border-radius:11px}
+@media(min-width:700px){.quick-grid{grid-template-columns:repeat(4,1fr)}}
+
+
+
+@media print {
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  #receiptPrintArea,
+  #receiptPrintArea * {
+    visibility: visible !important;
+  }
+
+  #receiptPrintArea {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    background: #fff !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+}

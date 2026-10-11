@@ -1,11 +1,54 @@
-<div align="center">
+# Tuition Collection App — Tailwind + JavaScript
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+এটি মূলত HTML + Tailwind CSS + JavaScript অ্যাপ। Android অংশে শুধু একটি ছোট WebView launcher আছে, যাতে AndroidIDE থেকে APK চালানো যায়।
 
-  <h1>Built with AI Studio</h2>
+## Structure
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+app/src/main/assets/
+- index.html — app entry
+- css/tailwind.css — local Tailwind utility/design layer
+- js/storage.js — local data storage
+- js/utils.js — common helpers
+- js/students.js — student logic
+- js/payments.js — payment logic
+- js/receipt.js — receipt/print
+- js/reports.js — report logic
+- js/app.js — screen/navigation orchestration
+- pages/ — future page-specific HTML
+- components/ — reusable UI pieces
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+app/src/main/java/.../MainActivity.java
+- শুধু local index.html WebView-তে load করে। Business logic এখানে নেই।
 
-</div>
+## Current preview features
+
+- Student details
+- Monthly fee
+- Student edit/delete
+- Year selector
+- Month navigation
+- Monthly payment checklist
+- Paid / Partial / Due
+- Automatic due list
+- Payment amount/date/month/comment
+- Student Jan-Dec yearly summary
+- Complete payment history
+- Receipt + print
+- LocalStorage
+- JSON backup/restore
+
+## Tailwind note
+
+`css/tailwind.css` local রাখা হয়েছে যাতে APK preview-তে CDN/internet-এর উপর নির্ভর করতে না হয়। File-এর শুরুতে Tailwind directives রাখা হয়েছে এবং preview-এর জন্য প্রয়োজনীয় compiled utility layer একই file-এ আছে।
+
+## AndroidIDE
+
+ZIP extract করে AndroidIDE-তে project folder open করুন, Gradle sync হতে দিন এবং Run চাপুন।
+
+## Phase 2 UI
+
+- Mobile-first dashboard with collection hero card
+- Payment status progress
+- Quick action cards
+- Improved student list and avatar
+- Dedicated folders documented for each page/component

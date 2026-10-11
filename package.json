@@ -1,0 +1,12 @@
+{
+  "name": "ns-tuition-fee-collection",
+  "version": "1.0.0",
+  "description": "Tuition Fee Collection app",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "echo 'Build successful'"
+  },
+  "dependencies": {}
+}

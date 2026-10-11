@@ -1,0 +1,3901 @@
+window.APP = {
+  ...Store.load(),
+
+  page: "home",
+  search: "",
+
+  render() {
+    const fn = {
+      home: this.home,
+      payments: this.paymentsPage,
+      students: this.studentsPage,
+      reports: this.reports
+    }[this.page] || this.home;
+
+    fn.call(this);
+  },
+
+  save() {
+    Store.save(this);
+  },
+
+  go(page) {
+    this.page = page;
+    this.render();
+  },
+
+  header(title) {
+    return `
+      <div class="topbar">
+        <div class="container"
+             style="padding-top:0;padding-bottom:0">
+
+          <div class="flex items-center justify-between">
+
+            <div>
+              <div class="brand">
+                📘 Tuition Collection
+              </div>
+
+              <div class="sub">
+                ${U.esc(title)}
+              </div>
+            </div>
+
+            <button
+              class="btn"
+              style="
+                background:rgba(255,255,255,.16);
+                color:#fff
+              "
+              onclick="APP.backup()">
+              ⋮
+            </button>
+
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  nav() {
+
+    const items = [
+      ["home", "🏠", "Home"],
+      ["payments", "💰", "Payments"],
+      ["students", "👨‍🎓", "Students"],
+      ["reports", "📊", "Reports"]
+    ];
+
+    return `
+      <div class="nav">
+        <div class="navin">
+
+          ${items.map(x => `
+            <button
+              class="${this.page === x[0] ? "active" : ""}"
+              onclick="APP.go('${x[0]}')">
+
+              <span class="navicon">
+                ${x[1]}
+              </span>
+
+              ${x[2]}
+
+            </button>
+          `).join("")}
+
+        </div>
+      </div>
+    `;
+  },
+
+  shell(content, title) {
+
+    document.getElementById("app").innerHTML =
+      this.header(title) +
+      `
+        <main class="container bottomspace">
+          ${content}
+        </main>
+      ` +
+      this.nav();
+  },
+
+  monthBar() {
+
+    return `
+      <div class="monthbar">
+
+        <button
+          class="btn btn-soft"
+          onclick="APP.shiftMonth(-1)">
+          ‹
+        </button>
+
+        <div class="monthname">
+          ${U.months[this.settings.month - 1]}
+          ${this.settings.year}
+        </div>
+
+        <button
+          class="btn btn-soft"
+          onclick="APP.shiftMonth(1)">
+          ›
+        </button>
+
+      </div>
+    `;
+  },
+
+  yearSelect() {
+
+    const y = this.settings.year;
+
+    return `
+      <select
+        class="select"
+        style="width:auto"
+        onchange="APP.changeYear(this.value)">
+
+        ${[y - 1, y, y + 1, y + 2]
+          .map(v => `
+            <option
+              ${v == y ? "selected" : ""}>
+              ${v}
+            </option>
+          `)
+          .join("")}
+
+      </select>
+    `;
+  },
+
+  home() {
+
+    const total =
+      PaymentModule.monthTotal(
+        this.settings.year,
+        this.settings.month
+      );
+
+    const yearTotal =
+      PaymentModule.yearTotal(
+        this.settings.year
+      );
+
+    const due =
+      this.students.filter(
+        s =>
+          StudentModule.status(
+            s,
+            this.settings.year,
+            this.settings.month
+          ) !== "Paid"
+      );
+
+    const paidCount =
+      this.students.length - due.length;
+
+    const percent =
+      this.students.length
+        ? Math.round(
+            (paidCount / this.students.length) * 100
+          )
+        : 0;
+
+    this.shell(`
+
+      <div class="text-xl font-extrabold mb-3">
+        ড্যাশবোর্ড
+      </div>
+
+      ${this.monthBar()}
+
+      <div class="hero-card card mt-3">
+
+        <div
+          class="text-xs"
+          style="opacity:.82">
+          এই মাসে মোট সংগ্রহ
+        </div>
+
+        <div class="hero-number">
+          ${U.money(total)}
+        </div>
+
+        <div
+          class="text-xs mt-2"
+          style="opacity:.82">
+
+          ${U.months[this.settings.month - 1]}
+          ${this.settings.year}
+
+        </div>
+
+      </div>
+
+      <div class="grid grid-2 gap-2 mt-3">
+
+        <div class="card stat">
+          <div class="statlabel">
+            এই বছরে সংগ্রহ
+          </div>
+
+          <div class="statvalue">
+            ${U.money(yearTotal)}
+          </div>
+        </div>
+
+        <div class="card stat">
+          <div class="statlabel">
+            মোট Student
+          </div>
+
+          <div class="statvalue">
+            ${this.students.length}
+          </div>
+        </div>
+
+      </div>
+
+      <div class="sectionhead">
+        <h3>এই মাসের Payment Status</h3>
+
+        <span class="text-xs text-slate-500">
+          ${percent}% Paid
+        </span>
+      </div>
+
+      <div class="card">
+
+        <div
+          class="flex items-center justify-between gap-2 mb-2">
+
+          <b>
+            ${paidCount} জন Paid
+          </b>
+
+          <span class="text-xs text-red-600">
+            ${due.length} জন Due/Partial
+          </span>
+
+        </div>
+
+        <div class="progress">
+          <span style="width:${percent}%"></span>
+        </div>
+
+      </div>
+
+      <div class="sectionhead">
+        <h3>Quick Actions</h3>
+      </div>
+
+      <div class="quick-grid">
+
+        <button
+          class="quick-action"
+          onclick="APP.paymentModal()">
+
+          <span class="quick-icon">
+            💰
+          </span>
+
+          <span>
+            <b>Payment</b><br>
+            <small class="text-slate-500">
+              নতুন জমা
+            </small>
+          </span>
+
+        </button>
+
+        <button
+          class="quick-action"
+          onclick="APP.studentModal()">
+
+          <span class="quick-icon">
+            👨‍🎓
+          </span>
+
+          <span>
+            <b>Student</b><br>
+            <small class="text-slate-500">
+              নতুন Student
+            </small>
+          </span>
+
+        </button>
+
+        <button
+          class="quick-action"
+          onclick="APP.go('payments')">
+
+          <span class="quick-icon">
+            ☑️
+          </span>
+
+          <span>
+            <b>Checklist</b><br>
+            <small class="text-slate-500">
+              কে দিয়েছে
+            </small>
+          </span>
+
+        </button>
+
+        <button
+          class="quick-action"
+          onclick="APP.go('reports')">
+
+          <span class="quick-icon">
+            📊
+          </span>
+
+          <span>
+            <b>Reports</b><br>
+            <small class="text-slate-500">
+              মাসিক হিসাব
+            </small>
+          </span>
+
+        </button>
+
+      </div>
+
+      <div class="sectionhead">
+
+        <h3>
+          এই মাসের Due List
+        </h3>
+
+        <button
+          class="btn btn-soft"
+          onclick="APP.go('payments')">
+          সব দেখুন
+        </button>
+
+      </div>
+
+      <div class="card">
+
+        ${
+          due.length
+
+            ? due.slice(0, 8).map(s => `
+
+                <div class="row">
+
+                  <span>
+                    🔴
+                  </span>
+
+                  <div
+                    class="flex-1"
+                    onclick="APP.studentProfile('${s.id}')">
+
+                    <b>
+                      ${U.esc(s.name)}
+                    </b>
+
+                    <div class="text-xs text-slate-500">
+                      বাকি
+                      ${U.money(
+                        Math.max(
+                          0,
+                          s.fee -
+                          StudentModule.paid(
+                            s.id,
+                            this.settings.year,
+                            this.settings.month
+                          )
+                        )
+                      )}
+                    </div>
+
+                  </div>
+
+                  <button
+                    class="action-icon"
+                    onclick="APP.paymentFor('${s.id}')">
+                    +
+                  </button>
+
+                </div>
+
+              `).join("")
+
+            : `
+              <div class="empty">
+                এই মাসে কোনো Due নেই 🎉
+              </div>
+            `
+        }
+
+      </div>
+
+    `, "ড্যাশবোর্ড");
+  },
+
+  paymentsPage() {
+
+    this.shell(`
+
+      <div class="text-xl font-extrabold mb-3">
+        Payment Checklist
+      </div>
+
+      ${this.monthBar()}
+
+      <div class="sectionhead">
+
+        <h3>
+          কে দিয়েছে / কে দেয়নি
+        </h3>
+
+        <button
+          class="btn btn-primary"
+          onclick="APP.paymentModal()">
+          + Payment
+        </button>
+
+      </div>
+
+      <div class="card">
+
+        ${
+          this.students.length
+
+            ? this.students.map(s => {
+
+                const st =
+                  StudentModule.status(
+                    s,
+                    this.settings.year,
+                    this.settings.month
+                  );
+
+                const paid =
+                  StudentModule.paid(
+                    s.id,
+                    this.settings.year,
+                    this.settings.month
+                  );
+
+                return `
+
+                  <div class="row">
+
+                    <input
+                      type="checkbox"
+                      style="
+                        width:22px;
+                        height:22px;
+                        accent-color:#2563eb
+                      "
+                      ${st === "Paid" ? "checked" : ""}
+                      onchange="
+                        APP.togglePaid(
+                          '${s.id}',
+                          this.checked
+                        )
+                      "
+                    >
+
+                    <div
+                      class="flex-1"
+                      onclick="
+                        APP.studentProfile('${s.id}')
+                      ">
+
+                      <b>
+                        ${U.esc(s.name)}
+                      </b>
+
+                      <div class="text-xs text-slate-500">
+                        ${U.money(paid)}
+                        /
+                        ${U.money(s.fee)}
+                      </div>
+
+                    </div>
+
+                    <span
+                      class="status status-${st.toLowerCase()}">
+                      ${st}
+                    </span>
+
+                  </div>
+
+                `;
+              }).join("")
+
+            : `
+              <div class="empty">
+                আগে Student যোগ করুন।
+              </div>
+            `
+        }
+
+      </div>
+
+      <div class="sectionhead">
+
+        <h3>
+          এই মাসের Payment
+        </h3>
+
+        <span class="text-xs text-slate-500">
+          ${U.money(
+            PaymentModule.monthTotal(
+              this.settings.year,
+              this.settings.month
+            )
+          )}
+        </span>
+
+      </div>
+
+      <div>
+
+        ${
+          this.payments
+            .filter(
+              p =>
+                p.year == this.settings.year &&
+                p.month == this.settings.month
+            )
+            .map(p => {
+
+              const s =
+                StudentModule.get(
+                  p.studentId
+                );
+
+              return `
+
+                <div
+                  class="card flex items-center justify-between gap-2 mb-2">
+
+                  <div>
+
+                    <b>
+                      ${U.esc(
+                        s?.name || "Unknown"
+                      )}
+                    </b>
+
+                    <div class="text-xs text-slate-500">
+                      ${U.esc(p.date)}
+                      •
+                      ${U.esc(p.comment || "")}
+                    </div>
+
+                  </div>
+
+                  <div style="text-align:right">
+
+                    <b>
+                      ${U.money(p.amount)}
+                    </b>
+
+                    <br>
+
+                    <button
+                      class="btn btn-soft"
+                      onclick="
+                        ReceiptModule.open('${p.id}')
+                      ">
+                      Receipt
+                    </button>
+
+                    ${PaymentActions.buttons(p.id)}
+
+                  </div>
+
+                </div>
+
+              `;
+            })
+            .join("")
+
+          || `
+            <div class="card empty">
+              এই মাসে payment নেই।
+            </div>
+          `
+        }
+
+      </div>
+
+    `, "Payment Checklist");
+  },
+
+  studentsPage() {
+
+    const list =
+      this.students.filter(
+        s =>
+          s.name
+            .toLowerCase()
+            .includes(
+              this.search.toLowerCase()
+            )
+          ||
+          String(s.phone || "")
+            .includes(this.search)
+      );
+
+    this.shell(`
+
+      <div class="flex items-center justify-between mb-3">
+
+        <div class="text-xl font-extrabold">
+          Students
+        </div>
+
+        <button
+          class="btn btn-primary"
+          onclick="APP.studentModal()">
+          + Student
+        </button>
+
+      </div>
+
+      <input
+        class="input mb-3"
+        placeholder="নাম বা মোবাইল দিয়ে খুঁজুন..."
+        value="${U.esc(this.search)}"
+        oninput="
+          APP.search=this.value;
+          APP.studentsPage()
+        "
+      >
+
+      <div class="text-xs text-slate-500 mb-2">
+        ${list.length} জন Student
+      </div>
+
+      <div>
+
+        ${
+          list.map(s => `
+
+            <div
+              class="card flex items-center gap-3 mb-2">
+
+              <div class="avatar">
+                ${U.esc(
+                  (s.name || "?")
+                    .trim()
+                    .charAt(0)
+                )}
+              </div>
+
+              <div class="flex-1">
+
+                <b>
+                  ${U.esc(s.name)}
+                </b>
+
+                <div class="text-xs text-slate-500">
+
+                  ${U.esc(
+                    s.className || ""
+                  )}
+
+                  ${
+                    s.phone
+                      ? `• ${U.esc(s.phone)}`
+                      : ""
+                  }
+
+                </div>
+
+              </div>
+
+              <div style="text-align:right">
+
+                <b>
+                  ${U.money(s.fee)}
+                </b>
+
+                <div class="flex gap-1 mt-1">
+
+                  <button
+                    type="button"
+                    class="btn btn-soft"
+                    onclick="
+                      event.stopPropagation();
+                      APP.studentProfile('${s.id}')
+                    ">
+                    Profile
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn btn-danger"
+                    onclick="
+                      event.stopPropagation();
+                      APP.deleteStudent('${s.id}')
+                    ">
+                    Delete
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          `).join("")
+
+          ||
+
+          `
+            <div class="card empty">
+              কোনো Student পাওয়া যায়নি।
+            </div>
+          `
+        }
+
+      </div>
+
+    `, "Student Management");
+  },
+
+  reports() {
+
+    const rows =
+      ReportModule.monthRows(
+        this.settings.year
+      );
+
+    this.shell(`
+
+      <div class="text-xl font-extrabold mb-3">
+        Reports
+      </div>
+
+      <div class="mb-3">
+        ${this.yearSelect()}
+      </div>
+
+      <div class="card tablewrap">
+
+        <table class="table">
+
+          <thead>
+            <tr>
+              <th>মাস</th>
+              <th>সংগ্রহ</th>
+              <th>Due Student</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            ${rows.map(r => `
+              <tr>
+                <td>${r.name}</td>
+                <td>${U.money(r.total)}</td>
+                <td>${r.due}</td>
+              </tr>
+            `).join("")}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    `, "Reports");
+  },
+
+  changeYear(v) {
+
+    this.settings.year =
+      Number(v);
+
+    this.save();
+    this.render();
+  },
+
+  shiftMonth(delta) {
+
+    let m =
+      this.settings.month + delta;
+
+    let y =
+      this.settings.year;
+
+    if (m < 1) {
+      m = 12;
+      y--;
+    }
+
+    if (m > 12) {
+      m = 1;
+      y++;
+    }
+
+    this.settings.month = m;
+    this.settings.year = y;
+
+    this.save();
+    this.render();
+  },
+
+  togglePaid(id, checked) {
+
+    if (checked) {
+
+      const s =
+        StudentModule.get(id);
+
+      const need =
+        Math.max(
+          0,
+          s.fee -
+          StudentModule.paid(
+            id,
+            this.settings.year,
+            this.settings.month
+          )
+        );
+
+      if (need > 0) {
+
+        this.payments.push({
+
+          id: U.id(),
+
+          studentId: id,
+
+          year:
+            this.settings.year,
+
+          month:
+            this.settings.month,
+
+          date:
+            U.today(),
+
+          amount:
+            need,
+
+          comment:
+            "Checklist থেকে Paid"
+        });
+      }
+
+    } else {
+
+      this.payments =
+        this.payments.filter(
+          p =>
+            !(
+              p.studentId === id &&
+              p.year == this.settings.year &&
+              p.month == this.settings.month
+            )
+        );
+    }
+
+    this.save();
+    this.render();
+  },
+
+  paymentFor(id) {
+
+    if (!this.students.length) {
+      return;
+    }
+
+    this.paymentModal();
+
+    setTimeout(() => {
+
+      if ($("pmStudent")) {
+
+        $("pmStudent").value =
+          id;
+      }
+
+    }, 50);
+  },
+
+  paymentModal() {
+
+    this.modal(`
+
+      <h3 class="text-xl font-bold">
+        Payment যোগ করুন
+      </h3>
+
+      <div class="formgrid mt-3">
+
+        <div>
+
+          <label class="label">
+            Student
+          </label>
+
+          <select
+            id="pmStudent"
+            class="select">
+
+            ${this.students.map(s => `
+              <option value="${s.id}">
+                ${U.esc(s.name)}
+              </option>
+            `).join("")}
+
+          </select>
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            তারিখ
+          </label>
+
+          <input
+            id="pmDate"
+            class="input"
+            type="date"
+            value="${U.today()}">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            Amount
+          </label>
+
+          <input
+            id="pmAmount"
+            class="input"
+            type="number"
+            min="0">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            মাস
+          </label>
+
+          <select
+            id="pmMonth"
+            class="select">
+
+            ${U.months.map((m, i) => `
+              <option
+                value="${i + 1}"
+                ${
+                  i + 1 == this.settings.month
+                    ? "selected"
+                    : ""
+                }>
+
+                ${m}
+
+              </option>
+            `).join("")}
+
+          </select>
+
+        </div>
+
+        <div class="full">
+
+          <label class="label">
+            মন্তব্য
+          </label>
+
+          <textarea
+            id="pmComment"
+            class="textarea"
+            rows="3"></textarea>
+
+        </div>
+
+      </div>
+
+      <div
+        class="flex gap-2"
+        style="
+          justify-content:flex-end;
+          margin-top:15px
+        ">
+
+        <button
+          class="btn btn-soft"
+          onclick="APP.closeModal()">
+          Cancel
+        </button>
+
+        <button
+          class="btn btn-primary"
+          onclick="APP.savePayment()">
+          Save
+        </button>
+
+      </div>
+
+    `);
+  },
+
+  savePayment() {
+
+    const ok =
+      PaymentModule.add({
+
+        studentId:
+          $("pmStudent").value,
+
+        date:
+          $("pmDate").value,
+
+        amount:
+          $("pmAmount").value,
+
+        month:
+          $("pmMonth").value,
+
+        comment:
+          $("pmComment").value
+
+      });
+
+    if (!ok) {
+      return alert(
+        "Student ও Amount দিন"
+      );
+    }
+
+    this.save();
+    this.closeModal();
+    this.render();
+  },
+
+  studentModal() {
+
+    this.modal(`
+
+      <h3 class="text-xl font-bold">
+        নতুন Student
+      </h3>
+
+      <div class="formgrid mt-3">
+
+        <div class="full">
+
+          <label class="label">
+            Student Name *
+          </label>
+
+          <input
+            id="stName"
+            class="input">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            মোবাইল
+          </label>
+
+          <input
+            id="stPhone"
+            class="input">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            ক্লাস/ব্যাচ
+          </label>
+
+          <input
+            id="stClass"
+            class="input">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            মাসিক ফি
+          </label>
+
+          <input
+            id="stFee"
+            class="input"
+            type="number">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            ভর্তি তারিখ
+          </label>
+
+          <input
+            id="stJoin"
+            class="input"
+            type="date"
+            value="${U.today()}">
+
+        </div>
+
+        <div class="full">
+
+          <label class="label">
+            অভিভাবকের নাম
+          </label>
+
+          <input
+            id="stGuardian"
+            class="input">
+
+        </div>
+
+        <div class="full">
+
+          <label class="label">
+            ঠিকানা
+          </label>
+
+          <input
+            id="stAddress"
+            class="input">
+
+        </div>
+
+        <div class="full">
+
+          <label class="label">
+            মন্তব্য
+          </label>
+
+          <textarea
+            id="stComment"
+            class="textarea"
+            rows="2"></textarea>
+
+        </div>
+
+      </div>
+
+      <div
+        class="flex gap-2"
+        style="
+          justify-content:flex-end;
+          margin-top:15px
+        ">
+
+        <button
+          class="btn btn-soft"
+          onclick="APP.closeModal()">
+          Cancel
+        </button>
+
+        <button
+          class="btn btn-primary"
+          onclick="APP.saveStudent()">
+          Save
+        </button>
+
+      </div>
+
+    `);
+  },  saveStudent() {
+
+    const form = {
+      name:
+        $("stName").value,
+
+      phone:
+        $("stPhone").value,
+
+      className:
+        $("stClass").value,
+
+      fee:
+        $("stFee").value,
+
+      joinDate:
+        $("stJoin").value || U.today(),
+
+      guardian:
+        $("stGuardian").value,
+
+      address:
+        $("stAddress").value,
+
+      comment:
+        $("stComment").value
+    };
+
+    if (!StudentModule.add(form)) {
+      return alert(
+        "Student Name দিন"
+      );
+    }
+
+    this.save();
+    this.closeModal();
+    this.render();
+  },
+
+  studentProfile(id) {
+
+    const s =
+      StudentModule.get(id);
+
+    if (!s) {
+      return alert(
+        "Student পাওয়া যায়নি"
+      );
+    }
+
+    const year =
+      this.settings.year;
+
+    const paidYear =
+      this.payments
+        .filter(
+          p =>
+            p.studentId === id &&
+            p.year == year
+        )
+        .reduce(
+          (sum, p) =>
+            sum + Number(p.amount || 0),
+          0
+        );
+
+    const monthlyRows =
+      U.months.map(
+        (name, i) => {
+
+          const month =
+            i + 1;
+
+          const paid =
+            StudentModule.paid(
+              id,
+              year,
+              month
+            );
+
+          const fee =
+            Number(s.fee || 0);
+
+          const status =
+            StudentModule.status(
+              s,
+              year,
+              month
+            );
+
+          return {
+            name,
+            paid,
+            due:
+              Math.max(
+                0,
+                fee - paid
+              ),
+            status
+          };
+        }
+      );
+
+    this.modal(`
+
+      <div
+        class="flex items-center gap-2 mb-3">
+
+        <button
+          type="button"
+          class="btn btn-soft"
+          onclick="APP.closeModal()"
+          style="padding:8px 12px">
+
+          ← Back
+
+        </button>
+
+        <div
+          style="
+            flex:1;
+            min-width:0
+          ">
+
+          <h3
+            class="text-xl font-bold"
+            style="margin:0">
+
+            ${U.esc(s.name)}
+
+          </h3>
+
+          <div
+            class="text-xs text-slate-500">
+
+            ${U.esc(
+              s.className || ""
+            )}
+
+            ${
+              s.phone
+                ? `• ${U.esc(s.phone)}`
+                : ""
+            }
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <div
+        class="grid grid-2 gap-2">
+
+        <div class="card stat">
+
+          <div class="statlabel">
+            মাসিক ফি
+          </div>
+
+          <div class="statvalue">
+            ${U.money(s.fee)}
+          </div>
+
+        </div>
+
+        <div class="card stat">
+
+          <div class="statlabel">
+            ${year} Paid
+          </div>
+
+          <div class="statvalue">
+            ${U.money(paidYear)}
+          </div>
+
+        </div>
+
+      </div>
+
+      <div
+        class="flex items-center justify-between mt-3">
+
+        <h3 class="font-bold">
+          Monthly Status
+        </h3>
+
+        <div class="flex gap-2">
+
+          ${this.yearSelect()}
+
+          <button
+            class="btn btn-primary"
+            onclick="APP.paymentFor('${s.id}')">
+
+            + Payment
+
+          </button>
+
+        </div>
+
+      </div>
+
+      <div
+        class="card tablewrap mt-2">
+
+        <table class="table">
+
+          <thead>
+
+            <tr>
+
+              <th>মাস</th>
+
+              <th>Paid</th>
+
+              <th>Due</th>
+
+              <th>Status</th>
+
+            </tr>
+
+          </thead>
+
+          <tbody>
+
+            ${monthlyRows.map(r => `
+
+              <tr>
+
+                <td>
+                  ${r.name}
+                </td>
+
+                <td>
+                  ${U.money(r.paid)}
+                </td>
+
+                <td>
+                  ${U.money(r.due)}
+                </td>
+
+                <td>
+
+                  <span
+                    class="
+                      status
+                      status-${r.status.toLowerCase()}
+                    ">
+
+                    ${r.status}
+
+                  </span>
+
+                </td>
+
+              </tr>
+
+            `).join("")}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+      <div
+        class="sectionhead">
+
+        <h3>
+          Student Details
+        </h3>
+
+        <button
+          class="btn btn-soft"
+          onclick="
+            APP.editStudent('${s.id}')
+          ">
+
+          Edit
+
+        </button>
+
+      </div>
+
+      <div class="card">
+
+        <div class="detailrow">
+
+          <span>
+            Student
+          </span>
+
+          <b>
+            ${U.esc(s.name)}
+          </b>
+
+        </div>
+
+        <div class="detailrow">
+
+          <span>
+            Phone
+          </span>
+
+          <span>
+            ${U.esc(s.phone || "—")}
+          </span>
+
+        </div>
+
+        <div class="detailrow">
+
+          <span>
+            Class
+          </span>
+
+          <span>
+            ${U.esc(
+              s.className || "—"
+            )}
+          </span>
+
+        </div>
+
+        <div class="detailrow">
+
+          <span>
+            Guardian
+          </span>
+
+          <span>
+            ${U.esc(
+              s.guardian || "—"
+            )}
+          </span>
+
+        </div>
+
+        <div class="detailrow">
+
+          <span>
+            Address
+          </span>
+
+          <span>
+            ${U.esc(
+              s.address || "—"
+            )}
+          </span>
+
+        </div>
+
+        <div class="detailrow">
+
+          <span>
+            Join Date
+          </span>
+
+          <span>
+            ${U.esc(
+              s.joinDate || "—"
+            )}
+          </span>
+
+        </div>
+
+        <div class="detailrow">
+
+          <span>
+            Comment
+          </span>
+
+          <span>
+            ${U.esc(
+              s.comment || "—"
+            )}
+          </span>
+
+        </div>
+
+      </div>
+
+      <div class="sectionhead">
+
+        <h3>
+          Payment History
+        </h3>
+
+      </div>
+
+      <div>
+
+        ${
+          this.payments
+            .filter(
+              p =>
+                p.studentId === id
+            )
+            .sort(
+              (a, b) =>
+                String(b.date || "")
+                  .localeCompare(
+                    String(a.date || "")
+                  )
+            )
+            .map(p => `
+
+              <div
+                class="
+                  card
+                  flex
+                  items-center
+                  justify-between
+                  gap-2
+                  mb-2
+                ">
+
+                <div>
+
+                  <b>
+                    ${U.money(p.amount)}
+                  </b>
+
+                  <div
+                    class="
+                      text-xs
+                      text-slate-500
+                    ">
+
+                    ${U.esc(
+                      p.date || "—"
+                    )}
+
+                    •
+
+                    ${
+                      U.months[
+                        Number(p.month) - 1
+                      ] || "—"
+                    }
+
+                    ${p.year || ""}
+
+                  </div>
+
+                  ${
+                    p.comment
+                      ? `
+                        <div
+                          class="
+                            text-xs
+                            text-slate-500
+                            mt-1
+                          ">
+
+                          ${U.esc(
+                            p.comment
+                          )}
+
+                        </div>
+                      `
+                      : ""
+                  }
+
+                </div>
+
+                <div
+                  style="
+                    text-align:right
+                  ">
+
+                  <button
+                    class="btn btn-soft"
+                    onclick="
+                      ReceiptModule.open('${p.id}')
+                    ">
+
+                    Receipt
+
+                  </button>
+
+                  ${PaymentActions.buttons(p.id)}
+
+                </div>
+
+              </div>
+
+            `)
+            .join("")
+
+          ||
+
+          `
+            <div class="card empty">
+              কোনো Payment History নেই।
+            </div>
+          `
+        }
+
+      </div>
+
+    `);
+  },
+
+  editStudent(id) {
+
+    const s =
+      StudentModule.get(id);
+
+    if (!s) {
+      return alert(
+        "Student পাওয়া যায়নি"
+      );
+    }
+
+    this.modal(`
+
+      <h3 class="text-xl font-bold">
+        Student Edit
+      </h3>
+
+      <div class="formgrid mt-3">
+
+        <div class="full">
+
+          <label class="label">
+            Student Name *
+          </label>
+
+          <input
+            id="esName"
+            class="input"
+            value="${U.esc(s.name)}">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            মোবাইল
+          </label>
+
+          <input
+            id="esPhone"
+            class="input"
+            value="${U.esc(
+              s.phone || ""
+            )}">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            ক্লাস/ব্যাচ
+          </label>
+
+          <input
+            id="esClass"
+            class="input"
+            value="${U.esc(
+              s.className || ""
+            )}">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            মাসিক ফি
+          </label>
+
+          <input
+            id="esFee"
+            class="input"
+            type="number"
+            value="${Number(
+              s.fee || 0
+            )}">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            ভর্তি তারিখ
+          </label>
+
+          <input
+            id="esJoin"
+            class="input"
+            type="date"
+            value="${U.esc(
+              s.joinDate || ""
+            )}">
+
+        </div>
+
+        <div class="full">
+
+          <label class="label">
+            অভিভাবকের নাম
+          </label>
+
+          <input
+            id="esGuardian"
+            class="input"
+            value="${U.esc(
+              s.guardian || ""
+            )}">
+
+        </div>
+
+        <div class="full">
+
+          <label class="label">
+            ঠিকানা
+          </label>
+
+          <input
+            id="esAddress"
+            class="input"
+            value="${U.esc(
+              s.address || ""
+            )}">
+
+        </div>
+
+        <div class="full">
+
+          <label class="label">
+            মন্তব্য
+          </label>
+
+          <textarea
+            id="esComment"
+            class="textarea"
+            rows="2">${U.esc(
+              s.comment || ""
+            )}</textarea>
+
+        </div>
+
+      </div>
+
+      <div
+        class="flex gap-2"
+        style="
+          justify-content:space-between;
+          margin-top:15px
+        ">
+
+        <button
+          type="button"
+          class="btn btn-danger"
+          onclick="
+            APP.deleteStudent('${id}')
+          ">
+
+          Delete
+
+        </button>
+
+        <div class="flex gap-2">
+
+          <button
+            type="button"
+            class="btn btn-soft"
+            onclick="
+              APP.studentProfile('${id}')
+            ">
+
+            Cancel
+
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-primary"
+            onclick="
+              APP.updateStudent('${id}')
+            ">
+
+            Save
+
+          </button>
+
+        </div>
+
+      </div>
+
+    `);
+  },
+
+  updateStudent(id) {
+
+    const s =
+      StudentModule.get(id);
+
+    if (!s) {
+      return alert(
+        "Student পাওয়া যায়নি"
+      );
+    }
+
+    const name =
+      $("esName").value.trim();
+
+    if (!name) {
+      return alert(
+        "Student Name দিন"
+      );
+    }
+
+    s.name = name;
+
+    s.phone =
+      $("esPhone").value.trim();
+
+    s.className =
+      $("esClass").value.trim();
+
+    s.fee =
+      Number(
+        $("esFee").value || 0
+      );
+
+    s.joinDate =
+      $("esJoin").value ||
+      U.today();
+
+    s.guardian =
+      $("esGuardian").value.trim();
+
+    s.address =
+      $("esAddress").value.trim();
+
+    s.comment =
+      $("esComment").value.trim();
+
+    this.save();
+
+    this.closeModal();
+
+    this.studentProfile(id);
+  },
+
+  deleteStudent(id) {
+
+    const s =
+      StudentModule.get(id);
+
+    if (!s) {
+      return alert(
+        "Student পাওয়া যায়নি"
+      );
+    }
+
+    if (
+      !confirm(
+        "Student এবং তার payment history মুছে ফেলবেন?"
+      )
+    ) {
+      return;
+    }
+
+    this.students =
+      this.students.filter(
+        x => x.id !== id
+      );
+
+    this.payments =
+      this.payments.filter(
+        p =>
+          p.studentId !== id
+      );
+
+    this.save();
+
+    this.closeModal();
+
+    this.render();
+  },
+
+  modal(html) {
+
+    this.closeModal();
+
+    const el =
+      document.createElement("div");
+
+    el.className =
+      "modalback";
+
+    el.id =
+      "modal";
+
+    el.innerHTML = `
+
+      <div class="modal">
+
+        ${html}
+
+      </div>
+
+    `;
+
+    document.body.appendChild(el);
+  },
+
+  closeModal() {
+
+    const m =
+      document.getElementById(
+        "modal"
+      );
+
+    if (m) {
+      m.remove();
+    }
+  },
+
+  init() {
+
+    if (!this.settings) {
+
+      this.settings = {
+        year:
+          new Date().getFullYear(),
+
+        month:
+          new Date().getMonth() + 1
+      };
+
+    }
+
+    if (!Array.isArray(this.students)) {
+      this.students = [];
+    }
+
+    if (!Array.isArray(this.payments)) {
+      this.payments = [];
+    }
+
+    this.render();
+  }
+};
+
+function $(id) {
+  return document.getElementById(id);
+}
+
+document.addEventListener(
+  "DOMContentLoaded",
+  () => APP.init()
+);
+        </button>
+
+      </div>
+
+      <div class="sectionhead">
+
+        <h3>
+          এই মাসের Due List
+        </h3>
+
+        <button
+          class="btn btn-soft"
+          onclick="APP.go('payments')">
+          সব দেখুন
+        </button>
+
+      </div>
+
+      <div class="card">
+
+        ${
+          due.length
+
+            ? due.slice(0, 8).map(s => `
+
+                <div class="row">
+
+                  <span>
+                    🔴
+                  </span>
+
+                  <div
+                    class="flex-1"
+                    onclick="APP.studentProfile('${s.id}')">
+
+                    <b>
+                      ${U.esc(s.name)}
+                    </b>
+
+                    <div class="text-xs text-slate-500">
+
+                      বাকি
+                      ${U.money(
+                        Math.max(
+                          0,
+                          s.fee -
+                          StudentModule.paid(
+                            s.id,
+                            this.settings.year,
+                            this.settings.month
+                          )
+                        )
+                      )}
+
+                    </div>
+
+                  </div>
+
+                  <button
+                    class="action-icon"
+                    onclick="APP.paymentFor('${s.id}')">
+                    +
+                  </button>
+
+                </div>
+
+              `).join("")
+
+            : `
+              <div class="empty">
+                এই মাসে কোনো Due নেই 🎉
+              </div>
+            `
+        }
+
+      </div>
+
+    `, "ড্যাশবোর্ড");
+  },
+
+  paymentsPage() {
+
+    this.shell(`
+
+      <div class="text-xl font-extrabold mb-3">
+        Payment Checklist
+      </div>
+
+      ${this.monthBar()}
+
+      <div class="sectionhead">
+
+        <h3>
+          কে দিয়েছে / কে দেয়নি
+        </h3>
+
+        <button
+          class="btn btn-primary"
+          onclick="APP.paymentModal()">
+          + Payment
+        </button>
+
+      </div>
+
+      <div class="card">
+
+        ${
+          this.students.length
+
+            ? this.students.map(s => {
+
+                const st =
+                  StudentModule.status(
+                    s,
+                    this.settings.year,
+                    this.settings.month
+                  );
+
+                const paid =
+                  StudentModule.paid(
+                    s.id,
+                    this.settings.year,
+                    this.settings.month
+                  );
+
+                return `
+
+                  <div class="row">
+
+                    <input
+                      type="checkbox"
+                      style="
+                        width:22px;
+                        height:22px;
+                        accent-color:#2563eb
+                      "
+                      ${st === "Paid" ? "checked" : ""}
+                      onchange="
+                        APP.togglePaid(
+                          '${s.id}',
+                          this.checked
+                        )
+                      "
+                    >
+
+                    <div
+                      class="flex-1"
+                      onclick="
+                        APP.studentProfile('${s.id}')
+                      ">
+
+                      <b>
+                        ${U.esc(s.name)}
+                      </b>
+
+                      <div class="text-xs text-slate-500">
+                        ${U.money(paid)}
+                        /
+                        ${U.money(s.fee)}
+                      </div>
+
+                    </div>
+
+                    <span
+                      class="status status-${st.toLowerCase()}">
+
+                      ${st}
+
+                    </span>
+
+                  </div>
+
+                `;
+              }).join("")
+
+            : `
+              <div class="empty">
+                আগে Student যোগ করুন।
+              </div>
+            `
+        }
+
+      </div>
+
+      <div class="sectionhead">
+
+        <h3>
+          এই মাসের Payment
+        </h3>
+
+        <span class="text-xs text-slate-500">
+
+          ${U.money(
+            PaymentModule.monthTotal(
+              this.settings.year,
+              this.settings.month
+            )
+          )}
+
+        </span>
+
+      </div>
+
+      <div>
+
+        ${
+          this.payments
+            .filter(
+              p =>
+                p.year == this.settings.year &&
+                p.month == this.settings.month
+            )
+            .map(p => {
+
+              const s =
+                StudentModule.get(
+                  p.studentId
+                );
+
+              return `
+
+                <div
+                  class="
+                    card
+                    flex
+                    items-center
+                    justify-between
+                    gap-2
+                    mb-2
+                  ">
+
+                  <div>
+
+                    <b>
+                      ${U.esc(
+                        s?.name || "Unknown"
+                      )}
+                    </b>
+
+                    <div
+                      class="
+                        text-xs
+                        text-slate-500
+                      ">
+
+                      ${U.esc(p.date)}
+
+                      •
+
+                      ${U.esc(
+                        p.comment || ""
+                      )}
+
+                    </div>
+
+                  </div>
+
+                  <div
+                    style="
+                      text-align:right
+                    ">
+
+                    <b>
+                      ${U.money(p.amount)}
+                    </b>
+
+                    <br>
+
+                    <button
+                      class="btn btn-soft"
+                      onclick="
+                        ReceiptModule.open('${p.id}')
+                      ">
+
+                      Receipt
+
+                    </button>
+
+                    ${PaymentActions.buttons(p.id)}
+
+                  </div>
+
+                </div>
+
+              `;
+
+            })
+            .join("")
+
+          ||
+
+          `
+            <div class="card empty">
+              এই মাসে payment নেই।
+            </div>
+          `
+        }
+
+      </div>
+
+    `, "Payment Checklist");
+  },
+
+  studentsPage() {
+
+    const list =
+      this.students.filter(
+        s =>
+          s.name
+            .toLowerCase()
+            .includes(
+              this.search.toLowerCase()
+            )
+          ||
+          String(s.phone || "")
+            .includes(this.search)
+      );
+
+    this.shell(`
+
+      <div
+        class="
+          flex
+          items-center
+          justify-between
+          mb-3
+        ">
+
+        <div class="text-xl font-extrabold">
+          Students
+        </div>
+
+        <button
+          class="btn btn-primary"
+          onclick="APP.studentModal()">
+
+          + Student
+
+        </button>
+
+      </div>
+
+      <input
+        class="input mb-3"
+        placeholder="নাম বা মোবাইল দিয়ে খুঁজুন..."
+        value="${U.esc(this.search)}"
+        oninput="
+          APP.search=this.value;
+          APP.studentsPage()
+        "
+      >
+
+      <div class="text-xs text-slate-500 mb-2">
+        ${list.length} জন Student
+      </div>
+
+      <div>
+
+        ${
+          list.map(s => `
+
+            <div
+              class="
+                card
+                flex
+                items-center
+                gap-3
+                mb-2
+              ">
+
+              <div class="avatar">
+
+                ${U.esc(
+                  (s.name || "?")
+                    .trim()
+                    .charAt(0)
+                )}
+
+              </div>
+
+              <div class="flex-1">
+
+                <b>
+                  ${U.esc(s.name)}
+                </b>
+
+                <div
+                  class="
+                    text-xs
+                    text-slate-500
+                  ">
+
+                  ${U.esc(
+                    s.className || ""
+                  )}
+
+                  ${
+                    s.phone
+                      ? `• ${U.esc(s.phone)}`
+                      : ""
+                  }
+
+                </div>
+
+              </div>
+
+              <div
+                style="
+                  text-align:right
+                ">
+
+                <b>
+                  ${U.money(s.fee)}
+                </b>
+
+                <div class="flex gap-1 mt-1">
+
+                  <button
+                    type="button"
+                    class="btn btn-soft"
+                    onclick="
+                      event.stopPropagation();
+                      APP.studentProfile('${s.id}')
+                    ">
+
+                    Profile
+
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn btn-danger"
+                    onclick="
+                      event.stopPropagation();
+                      APP.deleteStudent('${s.id}')
+                    ">
+
+                    Delete
+
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          `).join("")
+
+          ||
+
+          `
+            <div class="card empty">
+              কোনো Student পাওয়া যায়নি।
+            </div>
+          `
+        }
+
+      </div>
+
+    `, "Student Management");
+  },
+
+  reports() {
+
+    const rows =
+      ReportModule.monthRows(
+        this.settings.year
+      );
+
+    this.shell(`
+
+      <div class="text-xl font-extrabold mb-3">
+        Reports
+      </div>
+
+      <div class="mb-3">
+        ${this.yearSelect()}
+      </div>
+
+      <div class="card tablewrap">
+
+        <table class="table">
+
+          <thead>
+
+            <tr>
+              <th>মাস</th>
+              <th>সংগ্রহ</th>
+              <th>Due Student</th>
+            </tr>
+
+          </thead>
+
+          <tbody>
+
+            ${rows.map(r => `
+
+              <tr>
+
+                <td>
+                  ${r.name}
+                </td>
+
+                <td>
+                  ${U.money(r.total)}
+                </td>
+
+                <td>
+                  ${r.due}
+                </td>
+
+              </tr>
+
+            `).join("")}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    `, "Reports");
+  },
+
+  changeYear(v) {
+
+    this.settings.year =
+      Number(v);
+
+    this.save();
+
+    this.render();
+  },
+
+  shiftMonth(delta) {
+
+    let m =
+      this.settings.month + delta;
+
+    let y =
+      this.settings.year;
+
+    if (m < 1) {
+      m = 12;
+      y--;
+    }
+
+    if (m > 12) {
+      m = 1;
+      y++;
+    }
+
+    this.settings.month = m;
+    this.settings.year = y;
+
+    this.save();
+
+    this.render();
+  },
+
+  togglePaid(id, checked) {
+
+    if (checked) {
+
+      const s =
+        StudentModule.get(id);
+
+      const need =
+        Math.max(
+          0,
+          s.fee -
+          StudentModule.paid(
+            id,
+            this.settings.year,
+            this.settings.month
+          )
+        );
+
+      if (need > 0) {
+
+        this.payments.push({
+
+          id:
+            U.id(),
+
+          studentId:
+            id,
+
+          year:
+            this.settings.year,
+
+          month:
+            this.settings.month,
+
+          date:
+            U.today(),
+
+          amount:
+            need,
+
+          comment:
+            "Checklist থেকে Paid"
+
+        });
+
+      }
+
+    } else {
+
+      this.payments =
+        this.payments.filter(
+          p =>
+            !(
+              p.studentId === id &&
+              p.year == this.settings.year &&
+              p.month == this.settings.month
+            )
+        );
+
+    }
+
+    this.save();
+
+    this.render();
+  },
+
+  paymentFor(id) {
+
+    if (!this.students.length) {
+      return;
+    }
+
+    this.paymentModal();
+
+    setTimeout(() => {
+
+      if ($("pmStudent")) {
+
+        $("pmStudent").value =
+          id;
+
+      }
+
+    }, 50);
+  },
+
+  paymentModal() {
+
+    this.modal(`
+
+      <h3 class="text-xl font-bold">
+        Payment যোগ করুন
+      </h3>
+
+      <div class="formgrid mt-3">
+
+        <div>
+
+          <label class="label">
+            Student
+          </label>
+
+          <select
+            id="pmStudent"
+            class="select">
+
+            ${this.students.map(s => `
+
+              <option value="${s.id}">
+                ${U.esc(s.name)}
+              </option>
+
+            `).join("")}
+
+          </select>
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            তারিখ
+          </label>
+
+          <input
+            id="pmDate"
+            class="input"
+            type="date"
+            value="${U.today()}">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            Amount
+          </label>
+
+          <input
+            id="pmAmount"
+            class="input"
+            type="number"
+            min="0">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            মাস
+          </label>
+
+          <select
+            id="pmMonth"
+            class="select">
+
+            ${U.months.map((m, i) => `
+
+              <option
+                value="${i + 1}"
+                ${
+                  i + 1 == this.settings.month
+                    ? "selected"
+                    : ""
+                }>
+
+                ${m}
+
+              </option>
+
+            `).join("")}
+
+          </select>
+
+        </div>
+
+        <div class="full">
+
+          <label class="label">
+            মন্তব্য
+          </label>
+
+          <textarea
+            id="pmComment"
+            class="textarea"
+            rows="3"></textarea>
+
+        </div>
+
+      </div>
+
+      <div
+        class="flex gap-2"
+        style="
+          justify-content:flex-end;
+          margin-top:15px
+        ">
+
+        <button
+          class="btn btn-soft"
+          onclick="APP.closeModal()">
+
+          Cancel
+
+        </button>
+
+        <button
+          class="btn btn-primary"
+          onclick="APP.savePayment()">
+
+          Save
+
+        </button>
+
+      </div>
+
+    `);
+  },
+  
+    savePayment() {
+
+    const ok =
+      PaymentModule.add({
+
+        studentId:
+          $("pmStudent").value,
+
+        date:
+          $("pmDate").value,
+
+        amount:
+          $("pmAmount").value,
+
+        month:
+          $("pmMonth").value,
+
+        comment:
+          $("pmComment").value
+
+      });
+
+    if (!ok) {
+
+      return alert(
+        "Student ও Amount দিন"
+      );
+
+    }
+
+    this.save();
+
+    this.closeModal();
+
+    this.render();
+  },
+
+  studentModal() {
+
+    this.modal(`
+
+      <h3 class="text-xl font-bold">
+        নতুন Student
+      </h3>
+
+      <div class="formgrid mt-3">
+
+        <div class="full">
+
+          <label class="label">
+            Student Name *
+          </label>
+
+          <input
+            id="stName"
+            class="input">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            মোবাইল
+          </label>
+
+          <input
+            id="stPhone"
+            class="input">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            ক্লাস/ব্যাচ
+          </label>
+
+          <input
+            id="stClass"
+            class="input">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            মাসিক ফি
+          </label>
+
+          <input
+            id="stFee"
+            class="input"
+            type="number">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            ভর্তি তারিখ
+          </label>
+
+          <input
+            id="stJoin"
+            class="input"
+            type="date"
+            value="${U.today()}">
+
+        </div>
+
+        <div class="full">
+
+          <label class="label">
+            অভিভাবকের নাম
+          </label>
+
+          <input
+            id="stGuardian"
+            class="input">
+
+        </div>
+
+        <div class="full">
+
+          <label class="label">
+            ঠিকানা
+          </label>
+
+          <input
+            id="stAddress"
+            class="input">
+
+        </div>
+
+        <div class="full">
+
+          <label class="label">
+            মন্তব্য
+          </label>
+
+          <textarea
+            id="stComment"
+            class="textarea"
+            rows="2"></textarea>
+
+        </div>
+
+      </div>
+
+      <div
+        class="flex gap-2"
+        style="
+          justify-content:flex-end;
+          margin-top:15px
+        ">
+
+        <button
+          class="btn btn-soft"
+          onclick="APP.closeModal()">
+
+          Cancel
+
+        </button>
+
+        <button
+          class="btn btn-primary"
+          onclick="APP.saveStudent()">
+
+          Save
+
+        </button>
+
+      </div>
+
+    `);
+  },
+
+  saveStudent() {
+
+    const form = {
+
+      name:
+        $("stName").value,
+
+      phone:
+        $("stPhone").value,
+
+      className:
+        $("stClass").value,
+
+      fee:
+        $("stFee").value,
+
+      joinDate:
+        $("stJoin").value ||
+        U.today(),
+
+      guardian:
+        $("stGuardian").value,
+
+      address:
+        $("stAddress").value,
+
+      comment:
+        $("stComment").value
+
+    };
+
+    if (!StudentModule.add(form)) {
+
+      return alert(
+        "Student Name দিন"
+      );
+
+    }
+
+    this.save();
+
+    this.closeModal();
+
+    this.render();
+  },
+
+  studentProfile(id) {
+
+    const s =
+      StudentModule.get(id);
+
+    if (!s) {
+
+      return alert(
+        "Student পাওয়া যায়নি"
+      );
+
+    }
+
+    const year =
+      this.settings.year;
+
+    const paidYear =
+      this.payments
+        .filter(
+          p =>
+            p.studentId === id &&
+            p.year == year
+        )
+        .reduce(
+          (sum, p) =>
+            sum + Number(p.amount || 0),
+          0
+        );
+
+    const monthlyRows =
+      U.months.map(
+        (name, i) => {
+
+          const month =
+            i + 1;
+
+          const paid =
+            StudentModule.paid(
+              id,
+              year,
+              month
+            );
+
+          const fee =
+            Number(s.fee || 0);
+
+          const status =
+            StudentModule.status(
+              s,
+              year,
+              month
+            );
+
+          return {
+
+            name,
+
+            paid,
+
+            due:
+              Math.max(
+                0,
+                fee - paid
+              ),
+
+            status
+
+          };
+
+        }
+      );
+
+    this.modal(`
+
+      <div
+        class="
+          flex
+          items-center
+          gap-2
+          mb-3
+        ">
+
+        <button
+          type="button"
+          class="btn btn-soft"
+          onclick="APP.closeModal()"
+          style="
+            padding:8px 12px
+          ">
+
+          ← Back
+
+        </button>
+
+        <div
+          style="
+            flex:1;
+            min-width:0
+          ">
+
+          <h3
+            class="text-xl font-bold"
+            style="margin:0">
+
+            ${U.esc(s.name)}
+
+          </h3>
+
+          <div
+            class="
+              text-xs
+              text-slate-500
+            ">
+
+            ${U.esc(
+              s.className || ""
+            )}
+
+            ${
+              s.phone
+                ? `• ${U.esc(s.phone)}`
+                : ""
+            }
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <div
+        class="
+          grid
+          grid-2
+          gap-2
+        ">
+
+        <div class="card stat">
+
+          <div class="statlabel">
+            মাসিক ফি
+          </div>
+
+          <div class="statvalue">
+            ${U.money(s.fee)}
+          </div>
+
+        </div>
+
+        <div class="card stat">
+
+          <div class="statlabel">
+            ${year} Paid
+          </div>
+
+          <div class="statvalue">
+            ${U.money(paidYear)}
+          </div>
+
+        </div>
+
+      </div>
+
+      <div
+        class="
+          flex
+          items-center
+          justify-between
+          mt-3
+        ">
+
+        <h3 class="font-bold">
+          Monthly Status
+        </h3>
+
+        <div class="flex gap-2">
+
+          ${this.yearSelect()}
+
+          <button
+            class="btn btn-primary"
+            onclick="
+              APP.paymentFor('${s.id}')
+            ">
+
+            + Payment
+
+          </button>
+
+        </div>
+
+      </div>
+
+      <div
+        class="
+          card
+          tablewrap
+          mt-2
+        ">
+
+        <table class="table">
+
+          <thead>
+
+            <tr>
+
+              <th>
+                মাস
+              </th>
+
+              <th>
+                Paid
+              </th>
+
+              <th>
+                Due
+              </th>
+
+              <th>
+                Status
+              </th>
+
+            </tr>
+
+          </thead>
+
+          <tbody>
+
+            ${monthlyRows.map(r => `
+
+              <tr>
+
+                <td>
+                  ${r.name}
+                </td>
+
+                <td>
+                  ${U.money(r.paid)}
+                </td>
+
+                <td>
+                  ${U.money(r.due)}
+                </td>
+
+                <td>
+
+                  <span
+                    class="
+                      status
+                      status-${r.status.toLowerCase()}
+                    ">
+
+                    ${r.status}
+
+                  </span>
+
+                </td>
+
+              </tr>
+
+            `).join("")}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+      <div
+        class="sectionhead">
+
+        <h3>
+          Student Details
+        </h3>
+
+        <button
+          class="btn btn-soft"
+          onclick="
+            APP.editStudent('${s.id}')
+          ">
+
+          Edit
+
+        </button>
+
+      </div>
+
+      <div class="card">
+
+        <div class="detailrow">
+
+          <span>
+            Student
+          </span>
+
+          <b>
+            ${U.esc(s.name)}
+          </b>
+
+        </div>
+
+        <div class="detailrow">
+
+          <span>
+            Phone
+          </span>
+
+          <span>
+            ${U.esc(
+              s.phone || "—"
+            )}
+          </span>
+
+        </div>
+
+        <div class="detailrow">
+
+          <span>
+            Class
+          </span>
+
+          <span>
+            ${U.esc(
+              s.className || "—"
+            )}
+          </span>
+
+        </div>
+
+        <div class="detailrow">
+
+          <span>
+            Guardian
+          </span>
+
+          <span>
+            ${U.esc(
+              s.guardian || "—"
+            )}
+          </span>
+
+        </div>
+
+        <div class="detailrow">
+
+          <span>
+            Address
+          </span>
+
+          <span>
+            ${U.esc(
+              s.address || "—"
+            )}
+          </span>
+
+        </div>
+
+        <div class="detailrow">
+
+          <span>
+            Join Date
+          </span>
+
+          <span>
+            ${U.esc(
+              s.joinDate || "—"
+            )}
+          </span>
+
+        </div>
+
+        <div class="detailrow">
+
+          <span>
+            Comment
+          </span>
+
+          <span>
+            ${U.esc(
+              s.comment || "—"
+            )}
+          </span>
+
+        </div>
+
+      </div>
+
+      <div class="sectionhead">
+
+        <h3>
+          Payment History
+        </h3>
+
+      </div>
+
+      <div>
+
+        ${
+          this.payments
+            .filter(
+              p =>
+                p.studentId === id
+            )
+            .sort(
+              (a, b) =>
+                String(b.date || "")
+                  .localeCompare(
+                    String(a.date || "")
+                  )
+            )
+            .map(p => `
+
+              <div
+                class="
+                  card
+                  flex
+                  items-center
+                  justify-between
+                  gap-2
+                  mb-2
+                ">
+
+                <div>
+
+                  <b>
+                    ${U.money(p.amount)}
+                  </b>
+
+                  <div
+                    class="
+                      text-xs
+                      text-slate-500
+                    ">
+
+                    ${U.esc(
+                      p.date || "—"
+                    )}
+
+                    •
+
+                    ${
+                      U.months[
+                        Number(p.month) - 1
+                      ] || "—"
+                    }
+
+                    ${p.year || ""}
+
+                  </div>
+
+                  ${
+                    p.comment
+                      ? `
+                        <div
+                          class="
+                            text-xs
+                            text-slate-500
+                            mt-1
+                          ">
+
+                          ${U.esc(
+                            p.comment
+                          )}
+
+                        </div>
+                      `
+                      : ""
+                  }
+
+                </div>
+
+                <div
+                  style="
+                    text-align:right
+                  ">
+
+                  <button
+                    class="btn btn-soft"
+                    onclick="
+                      ReceiptModule.open('${p.id}')
+                    ">
+
+                    Receipt
+
+                  </button>
+
+                  ${PaymentActions.buttons(p.id)}
+
+                </div>
+
+              </div>
+
+            `)
+            .join("")
+
+          ||
+
+          `
+            <div class="card empty">
+              কোনো Payment History নেই।
+            </div>
+          `
+        }
+
+      </div>
+
+    `);
+  },
+
+  editStudent(id) {
+
+    const s =
+      StudentModule.get(id);
+
+    if (!s) {
+
+      return alert(
+        "Student পাওয়া যায়নি"
+      );
+
+    }
+
+    this.modal(`
+
+      <h3 class="text-xl font-bold">
+        Student Edit
+      </h3>
+
+      <div class="formgrid mt-3">
+
+        <div class="full">
+
+          <label class="label">
+            Student Name *
+          </label>
+
+          <input
+            id="esName"
+            class="input"
+            value="${U.esc(s.name)}">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            মোবাইল
+          </label>
+
+          <input
+            id="esPhone"
+            class="input"
+            value="${U.esc(
+              s.phone || ""
+            )}">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            ক্লাস/ব্যাচ
+          </label>
+
+          <input
+            id="esClass"
+            class="input"
+            value="${U.esc(
+              s.className || ""
+            )}">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            মাসিক ফি
+          </label>
+
+          <input
+            id="esFee"
+            class="input"
+            type="number"
+            value="${Number(
+              s.fee || 0
+            )}">
+
+        </div>
+
+        <div>
+
+          <label class="label">
+            ভর্তি তারিখ
+          </label>
+
+          <input
+            id="esJoin"
+            class="input"
+            type="date"
+            value="${U.esc(
+              s.joinDate || ""
+            )}">
+
+        </div>
+
+        <div class="full">
+
+          <label class="label">
+            অভিভাবকের নাম
+          </label>
+
+          <input
+            id="esGuardian"
+            class="input"
+            value="${U.esc(
+              s.guardian || ""
+            )}">
+
+        </div>
+
+        <div class="full">
+
+          <label class="label">
+            ঠিকানা
+          </label>
+
+          <input
+            id="esAddress"
+            class="input"
+            value="${U.esc(
+              s.address || ""
+            )}">
+
+        </div>
+
+        <div class="full">
+
+          <label class="label">
+            মন্তব্য
+          </label>
+
+          <textarea
+            id="esComment"
+            class="textarea"
+            rows="2">${U.esc(
+              s.comment || ""
+            )}</textarea>
+
+        </div>
+
+      </div>
+
+      <div
+        class="flex gap-2"
+        style="
+          justify-content:space-between;
+          margin-top:15px
+        ">
+
+        <button
+          type="button"
+          class="btn btn-danger"
+          onclick="
+            APP.deleteStudent('${id}')
+          ">
+
+          Delete
+
+        </button>
+
+        <div class="flex gap-2">
+
+          <button
+            type="button"
+            class="btn btn-soft"
+            onclick="
+              APP.studentProfile('${id}')
+            ">
+
+            Cancel
+
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-primary"
+            onclick="
+              APP.updateStudent('${id}')
+            ">
+
+            Save
+
+          </button>
+
+        </div>
+
+      </div>
+
+    `);
+  },
+
+  updateStudent(id) {
+
+    const s =
+      StudentModule.get(id);
+
+    if (!s) {
+
+      return alert(
+        "Student পাওয়া যায়নি"
+      );
+
+    }
+
+    const name =
+      $("esName").value.trim();
+
+    if (!name) {
+
+      return alert(
+        "Student Name দিন"
+      );
+
+    }
+
+    s.name =
+      name;
+
+    s.phone =
+      $("esPhone").value.trim();
+
+    s.className =
+      $("esClass").value.trim();
+
+    s.fee =
+      Number(
+        $("esFee").value || 0
+      );
+
+    s.joinDate =
+      $("esJoin").value ||
+      U.today();
+
+    s.guardian =
+      $("esGuardian").value.trim();
+
+    s.address =
+      $("esAddress").value.trim();
+
+    s.comment =
+      $("esComment").value.trim();
+
+    this.save();
+
+    this.closeModal();
+
+    this.studentProfile(id);
+  },
+
+  deleteStudent(id) {
+
+    const s =
+      StudentModule.get(id);
+
+    if (!s) {
+
+      return alert(
+        "Student পাওয়া যায়নি"
+      );
+
+    }
+
+    if (
+      !confirm(
+        "Student এবং তার payment history মুছে ফেলবেন?"
+      )
+    ) {
+      return;
+    }
+
+    this.students =
+      this.students.filter(
+        x =>
+          x.id !== id
+      );
+
+    this.payments =
+      this.payments.filter(
+        p =>
+          p.studentId !== id
+      );
+
+    this.save();
+
+    this.closeModal();
+
+    this.render();
+  },
+
+  modal(html) {
+
+    this.closeModal();
+
+    const el =
+      document.createElement(
+        "div"
+      );
+
+    el.className =
+      "modalback";
+
+    el.id =
+      "modal";
+
+    el.innerHTML = `
+
+      <div class="modal">
+
+        ${html}
+
+      </div>
+
+    `;
+
+    document.body.appendChild(
+      el
+    );
+  },
+
+  closeModal() {
+
+    const m =
+      document.getElementById(
+        "modal"
+      );
+
+    if (m) {
+      m.remove();
+    }
+  },
+
