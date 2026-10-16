@@ -63,6 +63,84 @@ window.PaymentModule = {
       .reduce(function(sum, p) {
         return sum + Number(p.amount || 0);
       }, 0);
+  },
+
+  isNotStudied: function(studentId, year, month) {
+    var key = String(year) + "-" + String(month);
+    var student = (APP.students || []).find(function(s) {
+      return String(s.id) === String(studentId);
+    });
+
+    if (student) {
+      if (Array.isArray(student.notStudiedMonths)) {
+        if (student.notStudiedMonths.indexOf(key) !== -1) {
+          return true;
+        }
+      } else if (student.notStudiedMonths && typeof student.notStudiedMonths === "object") {
+        if (student.notStudiedMonths[key]) {
+          return true;
+        }
+      }
+    }
+
+    if (APP.studentMonthStatus) {
+      var globalKey = String(studentId) + "_" + key;
+      if (Array.isArray(APP.studentMonthStatus)) {
+        return APP.studentMonthStatus.indexOf(globalKey) !== -1;
+      }
+      if (typeof APP.studentMonthStatus === "object" && APP.studentMonthStatus[globalKey]) {
+        return true;
+      }
+    }
+
+    return false;
+  },
+
+  setNotStudied: function(studentId, year, month, state) {
+    var key = String(year) + "-" + String(month);
+    var globalKey = String(studentId) + "_" + key;
+
+    // 1. Update on student object
+    var student = (APP.students || []).find(function(s) {
+      return String(s.id) === String(studentId);
+    });
+    if (student) {
+      if (!Array.isArray(student.notStudiedMonths)) {
+        student.notStudiedMonths = [];
+      }
+      var idx = student.notStudiedMonths.indexOf(key);
+      if (state && idx === -1) {
+        student.notStudiedMonths.push(key);
+      } else if (!state && idx !== -1) {
+        student.notStudiedMonths.splice(idx, 1);
+      }
+    }
+
+    // 2. Update on APP top-level storage for persistence/backup
+    if (!APP.studentMonthStatus || typeof APP.studentMonthStatus !== "object") {
+      APP.studentMonthStatus = {};
+    }
+    if (state) {
+      APP.studentMonthStatus[globalKey] = true;
+    } else {
+      delete APP.studentMonthStatus[globalKey];
+    }
+
+    // 3. Persist to storage without affecting historical payment records
+    if (typeof APP.save === "function") {
+      APP.save();
+    }
+    return true;
+  },
+
+  toggleNotStudied: function(studentId, year, month) {
+    var current = this.isNotStudied(studentId, year, month);
+    var newState = !current;
+    this.setNotStudied(studentId, year, month, newState);
+    if (typeof APP.render === "function") {
+      APP.render();
+    }
+    return newState;
   }
 };
 
@@ -96,7 +174,14 @@ APP.paymentsPage = function() {
     return StudentModule.status(s, year, month) === "Paid";
   }).length;
 
-  var dueStudents = students.length - paidStudents;
+  var notStudiedStudents = students.filter(function(s) {
+    return PaymentModule.isNotStudied(s.id, year, month);
+  }).length;
+
+  var dueStudents = students.filter(function(s) {
+    var st = StudentModule.status(s, year, month);
+    return st === "Due" || st === "Partial";
+  }).length;
 
   this.shell(`
     <style>
@@ -109,250 +194,306 @@ APP.paymentsPage = function() {
       }
 
       .payment-summary-box {
-        background:#fff;
-        border:1px solid #e5e7eb;
-        border-radius:11px;
-        padding:9px 7px;
-        text-align:center;
-        min-width:0;
+        background: rgba(16, 24, 40, 0.72);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 12px;
+        padding: 9px 7px;
+        text-align: center;
+        min-width: 0;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
       }
 
       .payment-summary-title {
-        font-size:11px;
-        color:#64748b;
-        margin-bottom:3px;
+        font-size: 11px;
+        color: #94a3b8;
+        margin-bottom: 3px;
       }
 
       .payment-summary-value {
-        font-size:16px;
-        font-weight:700;
-        line-height:1.2;
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 1.2;
+        color: #f8fafc;
+        text-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
       }
 
       .payment-search {
-        margin-bottom:9px;
+        margin-bottom: 9px;
       }
 
       .payment-search input {
-        width:100%;
-        box-sizing:border-box;
-        height:40px;
-        border:1px solid #dbe2ea;
-        border-radius:10px;
-        padding:0 12px;
-        font-size:13px;
-        outline:none;
-        background:#fff;
+        width: 100%;
+        box-sizing: border-box;
+        height: 42px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        padding: 0 14px;
+        font-size: 13px;
+        outline: none;
+        background: rgba(15, 23, 42, 0.78);
+        backdrop-filter: blur(10px);
+        color: #f8fafc;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
       }
 
       .payment-search input:focus {
-        border-color:#2563eb;
+        border-color: #38bdf8;
+        box-shadow: 0 0 16px rgba(56, 189, 248, 0.35), inset 0 1px 2px rgba(0, 0, 0, 0.2);
       }
 
       .payment-list {
-        display:flex;
-        flex-direction:column;
-        gap:7px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
       }
 
       .payment-student-card {
-        background:#fff;
-        border:1px solid #e5e7eb;
-        border-radius:11px;
-        padding:9px;
-        box-shadow:0 1px 2px rgba(0,0,0,.03);
+        background: rgba(16, 24, 40, 0.72);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 11px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+        transition: transform 0.18s ease, border-color 0.18s ease;
+      }
+
+      .payment-student-card:hover {
+        border-color: rgba(56, 189, 248, 0.3);
       }
 
       .payment-student-top {
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:7px;
-        margin-bottom:4px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 7px;
+        margin-bottom: 5px;
       }
 
       .payment-student-name {
-        font-size:15px;
-        font-weight:700;
-        color:#0f172a;
-        line-height:1.3;
-        min-width:0;
-        overflow:hidden;
-        text-overflow:ellipsis;
-        white-space:nowrap;
+        font-size: 15px;
+        font-weight: 700;
+        color: #f8fafc;
+        line-height: 1.3;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .payment-status {
-        flex:0 0 auto;
-        font-size:10px;
-        font-weight:700;
-        padding:3px 7px;
-        border-radius:999px;
+        flex: 0 0 auto;
+        font-size: 10px;
+        font-weight: 800;
+        padding: 3px 8px;
+        border-radius: 999px;
+        letter-spacing: 0.2px;
       }
 
       .payment-status.paid {
-        background:#dcfce7;
-        color:#166534;
+        background: rgba(16, 185, 129, 0.18);
+        color: #34d399;
+        border: 1px solid rgba(52, 211, 153, 0.4);
+        box-shadow: 0 0 10px rgba(52, 211, 153, 0.25);
+        text-shadow: 0 0 8px rgba(52, 211, 153, 0.4);
       }
 
       .payment-status.partial {
-        background:#fef3c7;
-        color:#92400e;
+        background: rgba(245, 158, 11, 0.18);
+        color: #fbbf24;
+        border: 1px solid rgba(251, 191, 36, 0.4);
+        box-shadow: 0 0 10px rgba(251, 191, 36, 0.25);
+        text-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
       }
 
       .payment-status.due {
-        background:#fee2e2;
-        color:#991b1b;
+        background: rgba(244, 63, 94, 0.18);
+        color: #fb7185;
+        border: 1px solid rgba(244, 63, 94, 0.4);
+        box-shadow: 0 0 10px rgba(244, 63, 94, 0.25);
+        text-shadow: 0 0 8px rgba(244, 63, 94, 0.4);
+      }
+
+      .payment-status.not-studied {
+        background: rgba(100, 116, 139, 0.18);
+        color: #94a3b8;
+        border: 1px solid rgba(148, 163, 184, 0.3);
       }
 
       .payment-meta {
-        display:flex;
-        gap:10px;
-        flex-wrap:wrap;
-        font-size:12px;
-        color:#64748b;
-        line-height:1.3;
-        margin-bottom:7px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: #94a3b8;
+        line-height: 1.3;
+        margin-bottom: 7px;
       }
 
       .payment-meta b {
-        color:#334155;
-        font-weight:600;
+        color: #cbd5e1;
+        font-weight: 600;
       }
 
       .payment-money-grid {
-        display:grid;
-        grid-template-columns:repeat(3,1fr);
-        gap:5px;
-        margin-bottom:7px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        margin-bottom: 8px;
       }
 
       .payment-money-box {
-        background:#f8fafc;
-        border-radius:8px;
-        padding:6px 5px;
-        text-align:center;
-        min-width:0;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 9px;
+        padding: 6px 5px;
+        text-align: center;
+        min-width: 0;
       }
 
       .payment-money-label {
-        font-size:10px;
-        color:#64748b;
-        margin-bottom:2px;
+        font-size: 10px;
+        color: #94a3b8;
+        margin-bottom: 2px;
       }
 
       .payment-money-value {
-        font-size:12px;
-        font-weight:700;
-        color:#0f172a;
-        white-space:nowrap;
-        overflow:hidden;
-        text-overflow:ellipsis;
+        font-size: 13px;
+        font-weight: 700;
+        color: #f8fafc;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .payment-actions-row {
-        display:flex;
-        align-items:center;
-        gap:4px;
-        width:100%;
-        overflow-x:auto;
-        overflow-y:hidden;
-        flex-wrap:nowrap;
-        padding-bottom:1px;
-        -webkit-overflow-scrolling:touch;
-        scrollbar-width:none;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
+        padding-bottom: 2px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
       }
 
       .payment-actions-row::-webkit-scrollbar {
-        display:none;
+        display: none;
       }
 
       .payment-action-btn {
-        flex:0 0 auto;
-        border:0;
-        border-radius:7px;
-        height:30px;
-        padding:0 9px;
-        font-size:11px;
-        font-weight:600;
-        line-height:30px;
-        white-space:nowrap;
-        cursor:pointer;
+        flex: 0 0 auto;
+        border: 0;
+        border-radius: 9px;
+        height: 32px;
+        padding: 0 10px;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 32px;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .payment-action-btn:active {
+        transform: scale(0.96);
       }
 
       .payment-action-primary {
-        background:#2563eb;
-        color:#fff;
+        background: linear-gradient(135deg, #0ea5e9, #2563eb);
+        color: #ffffff;
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        box-shadow: 0 0 12px rgba(14, 165, 233, 0.35);
       }
 
       .payment-action-receipt {
-        background:#eef2ff;
-        color:#3730a3;
+        background: rgba(99, 102, 241, 0.16);
+        color: #a5b4fc;
+        border: 1px solid rgba(99, 102, 241, 0.28);
       }
 
       .payment-action-history {
-        background:#f1f5f9;
-        color:#334155;
+        background: rgba(56, 189, 248, 0.12);
+        color: #38bdf8;
+        border: 1px solid rgba(56, 189, 248, 0.24);
       }
 
       .payment-action-edit {
-        background:#fef3c7;
-        color:#92400e;
+        background: rgba(245, 158, 11, 0.15);
+        color: #fbbf24;
+        border: 1px solid rgba(245, 158, 11, 0.28);
       }
 
       .payment-action-delete {
-        background:#fee2e2;
-        color:#991b1b;
+        background: rgba(244, 63, 94, 0.15);
+        color: #fb7185;
+        border: 1px solid rgba(244, 63, 94, 0.3);
+      }
+
+      .payment-action-not-studied {
+        background: rgba(255, 255, 255, 0.06);
+        color: #94a3b8;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .payment-action-not-studied.active {
+        background: rgba(244, 63, 94, 0.2);
+        color: #fb7185;
+        border: 1px solid rgba(244, 63, 94, 0.4);
+        font-weight: 700;
+        box-shadow: 0 0 10px rgba(244, 63, 94, 0.25);
       }
 
       .payment-empty {
-        text-align:center;
-        padding:25px 12px;
-        color:#64748b;
-        background:#fff;
-        border:1px solid #e5e7eb;
-        border-radius:11px;
-        font-size:13px;
+        text-align: center;
+        padding: 25px 12px;
+        color: #94a3b8;
+        background: rgba(16, 24, 40, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        font-size: 13px;
       }
 
-
-      /* =====================================================
-         LATEST PAYMENTS
-      ===================================================== */
-
+      /* LATEST PAYMENTS */
       .latest-payments-section {
-        margin-bottom:10px;
+        margin-bottom: 10px;
       }
 
       .latest-payments-toggle-row {
-        display:flex;
-        justify-content:flex-end;
-        margin-bottom:9px;
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 9px;
       }
 
       .latest-payments-toggle-btn {
-        width:100%;
-        height:38px;
-        border:1px solid #dbe2ea;
-        border-radius:10px;
-        background:#fff;
-        color:#334155;
-        font-size:12px;
-        font-weight:700;
-        cursor:pointer;
+        width: 100%;
+        height: 40px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        background: rgba(16, 24, 40, 0.72);
+        backdrop-filter: blur(14px);
+        color: #cbd5e1;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
       }
 
       .latest-payments-toggle-btn:active {
-        background:#f8fafc;
+        background: rgba(30, 41, 59, 0.8);
       }
 
       .latest-payments-panel {
-        display:none;
-        margin-bottom:10px;
+        display: none;
+        margin-bottom: 10px;
       }
 
       .latest-payments-panel.open {
-        display:block;
+        display: block;
       }
 
       .latest-payments-header {
@@ -589,6 +730,12 @@ APP.paymentsPage = function() {
         color:#991b1b;
       }
 
+      .history-month-status.not-studied {
+        background:#f1f5f9;
+        color:#475569;
+        border:1px solid #cbd5e1;
+      }
+
       .history-month-info {
         display:grid;
         grid-template-columns:repeat(3,1fr);
@@ -751,6 +898,11 @@ APP.paymentsPage = function() {
 
           <div class="payment-summary-value">
             ${dueStudents}
+            ${
+              notStudiedStudents > 0
+                ? `<span style="font-size:10px;font-weight:normal;color:#64748b;display:block;">(পড়েনি: ${notStudiedStudents})</span>`
+                : ""
+            }
           </div>
 
         </div>
@@ -993,6 +1145,7 @@ APP.latestPaymentsHTML = function() {
 
 
       if (
+        student &&
         student.batchId &&
         Array.isArray(APP.batches)
       ) {
@@ -1130,6 +1283,13 @@ APP.paymentStudentListHTML = function(
   return students
     .map(function(s) {
 
+      var isNotStudied =
+        PaymentModule.isNotStudied(
+          s.id,
+          year,
+          month
+        );
+
       var paid =
         StudentModule.paid(
           s.id,
@@ -1145,25 +1305,36 @@ APP.paymentStudentListHTML = function(
 
 
       var due =
-        Math.max(
-          fee - paid,
-          0
-        );
+        isNotStudied
+          ? 0
+          : Math.max(
+              fee - paid,
+              0
+            );
 
 
       var status =
-        StudentModule.status(
-          s,
-          year,
-          month
-        );
+        isNotStudied
+          ? "এই মাস পড়েনি"
+          : StudentModule.status(
+              s,
+              year,
+              month
+            );
 
 
       var statusClass =
         "due";
 
 
-      if (status === "Paid") {
+      if (isNotStudied) {
+
+        statusClass =
+          "not-studied";
+
+      }
+
+      else if (status === "Paid") {
 
         statusClass =
           "paid";
@@ -1339,9 +1510,30 @@ APP.paymentStudentListHTML = function(
           <div
             class="payment-actions-row">
 
+            <button
+              type="button"
+              class="
+                payment-action-btn
+                payment-action-not-studied
+                ${isNotStudied ? "active" : ""}
+              "
+              onclick="
+                PaymentModule.toggleNotStudied('${s.id}', ${year}, ${month})
+              "
+              title="${
+                isNotStudied
+                  ? 'ক্লিক করে এই মাসের স্ট্যাটাস স্বাভাবিক করুন'
+                  : 'এই মাস পড়েনি হিসেবে চিহ্নিত করুন'
+              }">
+              ${
+                isNotStudied
+                  ? "✓ এই মাস পড়েনি"
+                  : "🚫 এই মাস পড়েনি"
+              }
+            </button>
 
             ${
-              status !== "Paid"
+              !isNotStudied && status !== "Paid"
                 ? `
 
                   <button
@@ -1456,13 +1648,37 @@ APP.paymentStudentListHTML = function(
    PAYMENT MODAL
 ========================================================= */
 
-APP.paymentModal = function(studentId) {
+APP.paymentModal = function(studentId, targetMonth, targetYear) {
 
   var students =
     (APP.students || []).filter(function(s) {
       return !s.archived;
     });
 
+  var activeMonth = Number(
+    targetMonth ||
+    APP.selectedMonth ||
+    (APP.settings && APP.settings.month) ||
+    (new Date().getMonth() + 1)
+  );
+
+  var activeYear = Number(
+    targetYear ||
+    APP.selectedYear ||
+    (APP.settings && APP.settings.year) ||
+    new Date().getFullYear()
+  );
+
+  var defaultAmount = "";
+  if (studentId) {
+    var selStudent = StudentModule.get(studentId);
+    if (selStudent) {
+      var paid = StudentModule.paid(selStudent.id, activeYear, activeMonth);
+      var fee = Number(selStudent.fee || 0);
+      var due = Math.max(0, fee - paid);
+      defaultAmount = due > 0 ? due : (fee > 0 ? fee : "");
+    }
+  }
 
   APP.modal(`
 
@@ -1483,7 +1699,8 @@ APP.paymentModal = function(studentId) {
 
         <select
           id="pStudent"
-          class="select">
+          class="select"
+          onchange="APP.updatePaymentModalDue()">
 
 
           <option value="">
@@ -1498,7 +1715,7 @@ APP.paymentModal = function(studentId) {
               <option
                 value="${U.esc(s.id)}"
                 ${
-                  s.id === studentId
+                  String(s.id) === String(studentId || "")
                     ? "selected"
                     : ""
                 }>
@@ -1550,20 +1767,14 @@ APP.paymentModal = function(studentId) {
 
         <select
           id="pMonth"
-          class="select">
+          class="select"
+          onchange="APP.updatePaymentModalDue()">
 
 
           ${U.months.map(function(m, i) {
 
             var selected =
-              i + 1 === Number(
-                APP.selectedMonth ||
-                (
-                  APP.settings &&
-                  APP.settings.month
-                ) ||
-                new Date().getMonth() + 1
-              );
+              (i + 1) === activeMonth;
 
 
             return `
@@ -1601,6 +1812,7 @@ APP.paymentModal = function(studentId) {
           class="input"
           type="number"
           min="1"
+          value="${defaultAmount}"
           placeholder="Amount">
 
       </div>
@@ -1660,103 +1872,112 @@ APP.paymentModal = function(studentId) {
 };
 
 
+APP.updatePaymentModalDue = function() {
+  var sEl = document.getElementById("pStudent");
+  var mEl = document.getElementById("pMonth");
+  var aEl = document.getElementById("pAmount");
+  if (!sEl || !aEl) return;
+
+  var sid = sEl.value;
+  var m = mEl ? Number(mEl.value) : ((APP.settings && APP.settings.month) || 1);
+  var y = (APP.settings && APP.settings.year) || new Date().getFullYear();
+
+  if (sid) {
+    var st = StudentModule.get(sid);
+    if (st) {
+      var paid = StudentModule.paid(st.id, y, m);
+      var fee = Number(st.fee || 0);
+      var due = Math.max(0, fee - paid);
+      aEl.value = due > 0 ? due : (fee > 0 ? fee : "");
+    }
+  }
+};
+
+
 /* =========================================================
    SAVE PAYMENT + AUTO RECEIPT
 ========================================================= */
 
 APP.savePayment = function() {
 
-  var studentId =
-    $("pStudent").value;
+  var sEl = document.getElementById("pStudent");
+  var studentId = sEl ? sEl.value : "";
 
+  var dateEl = document.getElementById("pDate");
+  var date = (dateEl && dateEl.value) || U.today();
 
-  var date =
-    $("pDate").value ||
-    U.today();
+  var mEl = document.getElementById("pMonth");
+  var month = Number(
+    (mEl && mEl.value) ||
+    (APP.settings && APP.settings.month) ||
+    1
+  );
 
+  var aEl = document.getElementById("pAmount");
+  var amount = Number((aEl && aEl.value) || 0);
 
-  var month =
-    Number(
-      $("pMonth").value
-    );
-
-
-  var amount =
-    Number(
-      $("pAmount").value || 0
-    );
-
-
-  var comment =
-    $("pComment").value.trim();
+  var cEl = document.getElementById("pComment");
+  var comment = cEl ? cEl.value.trim() : "";
 
 
   if (!studentId) {
-
-    alert(
-      "Student নির্বাচন করুন"
-    );
-
+    if (typeof APP.showNotification === "function") {
+      APP.showNotification("⚠️ Student নির্বাচন করুন");
+    } else {
+      alert("Student নির্বাচন করুন");
+    }
     return;
-
   }
 
 
-  if (amount <= 0) {
-
-    alert(
-      "সঠিক Amount দিন"
-    );
-
+  if (amount <= 0 || isNaN(amount)) {
+    if (typeof APP.showNotification === "function") {
+      APP.showNotification("⚠️ সঠিক Amount দিন");
+    } else {
+      alert("সঠিক Amount দিন");
+    }
     return;
-
   }
 
 
-  var d =
-    new Date(date);
-
-  var student =
-    StudentModule.get(studentId);
+  var d = new Date(date);
+  var student = StudentModule.get(studentId);
+  var payYear = (d && !isNaN(d.getFullYear()))
+    ? d.getFullYear()
+    : ((APP.settings && APP.settings.year) || new Date().getFullYear());
 
   var newPayment = {
-
     id: U.id(),
-
-    studentId:
-      studentId,
-
-    studentName:
-      student ? student.name : "",
-
-    year:
-      d.getFullYear(),
-
-    month:
-      month,
-
-    date:
-      date,
-
-    amount:
-      amount,
-
-    comment:
-      comment
-
+    studentId: studentId,
+    studentName: student ? student.name : "",
+    year: payYear,
+    month: month,
+    date: date,
+    amount: amount,
+    comment: comment
   };
 
 
-  APP.payments.push(
-    newPayment
-  );
+  if (!Array.isArray(APP.payments)) {
+    APP.payments = [];
+  }
 
+  APP.payments.push(newPayment);
+
+  // If student was marked as not studied for this month, reset it since payment is received
+  if (window.PaymentModule && typeof PaymentModule.setNotStudied === "function") {
+    PaymentModule.setNotStudied(studentId, payYear, month, false);
+  }
 
   APP.save();
 
   APP.closeModal();
 
   APP.render();
+
+  if (typeof APP.showNotification === "function") {
+    APP.showNotification("Payment সফলভাবে সেভ হয়েছে! (৳" + amount + ")");
+  }
 
 
   setTimeout(function() {
@@ -1897,12 +2118,21 @@ APP.paymentHistory = function(
           );
 
 
-        var monthDue =
-          Math.max(
-            selectedFee -
-              monthPaid,
-            0
+        var isNotStudied =
+          PaymentModule.isNotStudied(
+            selectedStudentId,
+            selectedYear,
+            m
           );
+
+        var monthDue =
+          isNotStudied
+            ? 0
+            : Math.max(
+                selectedFee -
+                  monthPaid,
+                0
+              );
 
 
         totalPaid +=
@@ -1914,6 +2144,7 @@ APP.paymentHistory = function(
 
 
         if (
+          !isNotStudied &&
           selectedFee > 0 &&
           monthPaid >= selectedFee
         ) {
@@ -1931,7 +2162,17 @@ APP.paymentHistory = function(
           "due";
 
 
-        if (
+        if (isNotStudied) {
+
+          monthStatus =
+            "এই মাস পড়েনি";
+
+          monthStatusClass =
+            "not-studied";
+
+        }
+
+        else if (
           selectedFee > 0 &&
           monthPaid >= selectedFee
         ) {

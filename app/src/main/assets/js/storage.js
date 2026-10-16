@@ -59,6 +59,13 @@ window.Store = {
         }
 
 
+        if (!db.studentMonthStatus || typeof db.studentMonthStatus !== "object") {
+
+          db.studentMonthStatus = {};
+
+        }
+
+
         // --------------------------------------------------
         // AUTO CURRENT MONTH / YEAR
         // --------------------------------------------------
@@ -135,7 +142,9 @@ window.Store = {
 
       students: [],
 
-      payments: []
+      payments: [],
+
+      studentMonthStatus: {}
 
     };
 

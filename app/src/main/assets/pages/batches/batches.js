@@ -673,7 +673,11 @@ APP.renderBatchStudents = function(batchId) {
 
           ? "background:#fef3c7;color:#92400e;"
 
-          : "background:#fee2e2;color:#991b1b;";
+          : status === "এই মাস পড়েনি"
+
+            ? "background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;"
+
+            : "background:#fee2e2;color:#991b1b;";
 
 
     html +=

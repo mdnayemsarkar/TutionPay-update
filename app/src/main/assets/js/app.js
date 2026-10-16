@@ -1012,6 +1012,15 @@ window.APP = {
 
     }
 
+    if (
+      !this.studentMonthStatus ||
+      typeof this.studentMonthStatus !== "object"
+    ) {
+
+      this.studentMonthStatus = {};
+
+    }
+
 
     this.render();
   }

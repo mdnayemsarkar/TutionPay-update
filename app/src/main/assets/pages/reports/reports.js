@@ -40,9 +40,24 @@ window.ReportModule = {
         }).length;
 
 
+      var notStudiedStudents =
+        students.filter(function(s) {
+          return (
+            StudentModule.status(
+              s,
+              year,
+              month
+            ) === "এই মাস পড়েনি"
+          );
+        }).length;
+
       var due =
-        students.length -
-        paidStudents;
+        Math.max(
+          0,
+          students.length -
+          paidStudents -
+          notStudiedStudents
+        );
 
 
       return {

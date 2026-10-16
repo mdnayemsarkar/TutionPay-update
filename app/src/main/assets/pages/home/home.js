@@ -17,25 +17,43 @@ window.APP.home = function () {
     );
 
 
-  const due =
+  const paidCount =
     this.students.filter(
       s =>
         StudentModule.status(
           s,
           this.settings.year,
           this.settings.month
-        ) !== "Paid"
+        ) === "Paid"
+    ).length;
+
+  const notStudiedCount =
+    this.students.filter(
+      s =>
+        StudentModule.status(
+          s,
+          this.settings.year,
+          this.settings.month
+        ) === "এই মাস পড়েনি"
+    ).length;
+
+  const due =
+    this.students.filter(
+      s => {
+        var st = StudentModule.status(
+          s,
+          this.settings.year,
+          this.settings.month
+        );
+        return st !== "Paid" && st !== "এই মাস পড়েনি";
+      }
     );
 
-
-  const paidCount =
-    this.students.length - due.length;
-
-
+  const activeStudents = Math.max(1, this.students.length - notStudiedCount);
   const percent =
     this.students.length
       ? Math.round(
-          (paidCount / this.students.length) * 100
+          (paidCount / activeStudents) * 100
         )
       : 0;
 
@@ -245,7 +263,7 @@ window.APP.home = function () {
 
 
         <span class="text-xs text-red-600">
-          ${due.length} জন Due/Partial
+          ${due.length} জন Due/Partial${notStudiedCount > 0 ? ` (পড়েনি: ${notStudiedCount})` : ""}
         </span>
 
       </div>
@@ -614,65 +632,30 @@ APP.paymentFor = function (id) {
     return;
   }
 
-
-  var student = null;
-
-
-  for (
-    var i = 0;
-    i < this.students.length;
-    i++
-  ) {
-
-    if (
-      String(this.students[i].id) ===
-      String(id)
-    ) {
-
-      student =
-        this.students[i];
-
-      break;
-    }
-
-  }
-
+  var student =
+    StudentModule.get(id);
 
   if (!student) {
-
-    alert(
-      "Student পাওয়া যায়নি।"
-    );
-
+    if (typeof this.showNotification === "function") {
+      this.showNotification("Student পাওয়া যায়নি।");
+    } else {
+      alert("Student পাওয়া যায়নি।");
+    }
     return;
-
   }
 
-
-  // Existing Payment Modal ব্যবহার করা হচ্ছে
-  this.paymentModal();
-
-
-  // Modal render হওয়ার পরে Student select করা হবে
-  setTimeout(
-    function () {
-
-      var studentSelect =
-        document.getElementById(
-          "pmStudent"
-        );
-
-
-      if (studentSelect) {
-
-        studentSelect.value =
-          id;
-
-      }
-
-    },
-    100
+  var curMonth = Number(
+    (this.settings && this.settings.month) ||
+    (new Date().getMonth() + 1)
   );
+
+  var curYear = Number(
+    (this.settings && this.settings.year) ||
+    new Date().getFullYear()
+  );
+
+  // Open payment modal with pre-selected student, month, year, and pre-filled due amount
+  this.paymentModal(id, curMonth, curYear);
 
 };
 
@@ -944,6 +927,7 @@ APP.getMonthlyDueStudents = function (
 
       if (
         status !== "Paid" &&
+        status !== "এই মাস পড়েনি" &&
         due > 0
       ) {
 
@@ -1046,6 +1030,11 @@ APP.printMonthlyDueList = function (
       month
     );
 
+  var totalDue =
+    this.getMonthlyDueTotal(
+      year,
+      month
+    );
 
   var monthName =
     U.months[
@@ -1059,99 +1048,32 @@ APP.printMonthlyDueList = function (
 
   if (!dueStudents.length) {
 
-    var emptyHtml = `
-
-      <div
-        style="
-          width:100%;
-          box-sizing:border-box;
-
-          padding:35px 25px;
-
-          font-family:
-            Arial,
-            'Noto Sans Bengali',
-            sans-serif;
-
-          color:#0f172a;
-        "
-      >
-
-        <div
-          style="
-            text-align:center;
-
-            font-size:22px;
-            font-weight:800;
-
-            margin-bottom:20px;
-          "
-        >
-          ${U.esc(monthName)}
-          ${year}
-          মাসের বকেয়া তালিকা
+    this.modal(`
+      <div style="text-align:center; padding:25px 12px;">
+        <div style="font-size:44px; line-height:1; margin-bottom:12px;">🎉</div>
+        <div style="font-size:18px; font-weight:800; color:#0f172a; margin-bottom:6px;">
+          ${U.esc(monthName)} ${year} — কোনো বকেয়া নেই
         </div>
-
-
-        <div
-          style="
-            border:
-              1px solid #cbd5e1;
-
-            border-radius:10px;
-
-            padding:25px;
-
-            text-align:center;
-
-            font-size:16px;
-          "
-        >
-          এই মাসে কোনো বকেয়া নেই।
+        <div style="font-size:13px; color:#64748b; margin-bottom:20px;">
+          এই মাসে সকল শিক্ষার্থীর ফি পরিশোধিত রয়েছে।
         </div>
-
+        <button
+          type="button"
+          class="btn btn-primary"
+          style="padding:8px 20px; font-weight:600;"
+          onclick="APP.openDuePrintMenu()"
+        >
+          ⬅ মাসের তালিকায় ফিরুন
+        </button>
       </div>
-
-    `;
-
-
-    if (
-      window.AndroidPrint &&
-      typeof AndroidPrint.printReceipt ===
-        "function"
-    ) {
-
-      AndroidPrint.printReceipt(
-        emptyHtml
-      );
-
-    } else {
-
-      alert(
-        "Print System পাওয়া যায়নি।"
-      );
-
-    }
-
+    `);
 
     return;
-
   }
 
 
   // ==========================================================
-  // TOTAL DUE
-  // ==========================================================
-
-  var totalDue =
-    this.getMonthlyDueTotal(
-      year,
-      month
-    );
-
-
-  // ==========================================================
-  // SIMPLE NAME + DUE
+  // ROWS OF STUDENTS WHO HAVE NOT PAID
   // ==========================================================
 
   var rows =
@@ -1161,230 +1083,375 @@ APP.printMonthlyDueList = function (
         var student =
           item.student;
 
+        var classText =
+          student.className
+            ? "Class: " + U.esc(student.className)
+            : "";
+
+        var phoneText =
+          student.phone
+            ? "ফোন: " + U.esc(student.phone)
+            : "";
+
+        var meta = [classText, phoneText].filter(Boolean).join(" • ");
 
         return `
-
           <div
             style="
               display:flex;
-
               align-items:center;
-
               justify-content:space-between;
-
-              gap:15px;
-
-              padding:
-                8px 0;
-
-              border-bottom:
-                1px solid #e2e8f0;
-
-              font-size:16px;
-
-              line-height:1.5;
+              gap:10px;
+              padding:10px 6px;
+              border-bottom:1px solid #f1f5f9;
             "
           >
-
-            <div
-              style="
-                flex:1;
-                min-width:0;
-              "
-            >
-
+            <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
               <span
                 style="
-                  font-weight:600;
-                "
-              >
-                ${index + 1}.
-              </span>
-
-
-              <span
-                style="
+                  display:inline-block;
+                  width:24px;
+                  height:24px;
+                  line-height:24px;
+                  background:#f1f5f9;
+                  color:#475569;
+                  border-radius:6px;
+                  text-align:center;
+                  font-size:12px;
                   font-weight:700;
-                  margin-left:4px;
+                  flex-shrink:0;
                 "
               >
-                ${U.esc(
-                  student.name || ""
-                )}
+                ${index + 1}
               </span>
 
+              <div style="min-width:0; flex:1;">
+                <div style="font-weight:700; font-size:14px; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                  ${U.esc(student.name || "")}
+                </div>
+                ${meta ? `<div style="font-size:11px; color:#64748b; margin-top:1px;">${meta}</div>` : ""}
+                <div style="font-size:11px; color:#64748b; margin-top:2px;">
+                  ফি: ${U.money(item.fee)} • জমা: <span style="color:#16a34a; font-weight:600;">${U.money(item.paid)}</span>
+                </div>
+              </div>
             </div>
 
+            <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+              <div style="text-align:right;">
+                <div style="font-size:10px; color:#dc2626; font-weight:600; text-transform:uppercase;">বকেয়া</div>
+                <div style="font-size:15px; font-weight:800; color:#dc2626; line-height:1.2;">
+                  ${U.money(item.due)}
+                </div>
+              </div>
 
-            <div
-              style="
-                white-space:nowrap;
-
-                font-weight:800;
-              "
-            >
-
-              ${Number(
-                item.due || 0
-              ).toLocaleString("en-US")}৳
-
+              <button
+                type="button"
+                class="btn btn-primary"
+                style="padding:4px 8px; font-size:11px; font-weight:700; height:28px; line-height:20px;"
+                onclick="APP.paymentModal('${student.id}', ${month}, ${year})"
+                title="এই বকেয়া পে করুন"
+              >
+                💰 Pay
+              </button>
             </div>
-
           </div>
-
         `;
-
       }
     ).join("");
 
 
   // ==========================================================
-  // PRINT PAGE
+  // DUE LIST PREVIEW MODAL
   // ==========================================================
 
-  var html = `
+  this.modal(`
+    <div style="display:flex; flex-direction:column; max-height:85vh;">
 
-    <div
-      style="
-        width:100%;
-        box-sizing:border-box;
-
-        padding:25px;
-
-        font-family:
-          Arial,
-          'Noto Sans Bengali',
-          sans-serif;
-
-        color:#0f172a;
-      "
-    >
-
-      <!-- ==================================================
-           TITLE
-           ================================================== -->
-
-      <div
-        style="
-          text-align:center;
-
-          font-size:21px;
-          font-weight:900;
-
-          padding-bottom:12px;
-
-          border-bottom:
-            2px solid #0f172a;
-
-          margin-bottom:15px;
-        "
-      >
-
-        ${U.esc(monthName)}
-        ${year}
-        মাসের বকেয়া তালিকা
-
-      </div>
-
-
-      <!-- ==================================================
-           FULL DUE LIST
-           ================================================== -->
-
-      <div>
-
-        ${rows}
-
-      </div>
-
-
-      <!-- ==================================================
-           TOTAL
-           ================================================== -->
-
+      <!-- MODAL HEADER -->
       <div
         style="
           display:flex;
-
-          align-items:center;
-
+          align-items:flex-start;
           justify-content:space-between;
-
-          margin-top:18px;
-
-          padding-top:12px;
-
-          border-top:
-            2px solid #0f172a;
-
-          font-size:17px;
-
-          font-weight:900;
+          gap:10px;
+          margin-bottom:10px;
+          padding-bottom:10px;
+          border-bottom:1px solid #e2e8f0;
         "
       >
+        <div>
+          <div style="font-size:17px; font-weight:800; color:#0f172a;">
+            📋 ${U.esc(monthName)} ${year} — বকেয়া তালিকা
+          </div>
+          <div style="font-size:12px; color:#64748b; margin-top:3px;">
+            মোট বকেয়া শিক্ষার্থী: <b style="color:#0f172a;">${dueStudents.length} জন</b> • মোট বকেয়া: <b style="color:#dc2626;">${U.money(totalDue)}</b>
+          </div>
+        </div>
 
-        <span>
-          মোট বকেয়া:
-        </span>
-
-
-        <span>
-          ${Number(
-            totalDue || 0
-          ).toLocaleString("en-US")}৳
-        </span>
-
+        <button
+          type="button"
+          class="btn btn-soft"
+          style="padding:3px 8px; font-size:16px; line-height:1;"
+          onclick="APP.closeModal()"
+        >
+          ×
+        </button>
       </div>
 
-
-      <!-- ==================================================
-           FOOTER
-           ================================================== -->
-
+      <!-- SCROLLABLE LIST OF STUDENTS WHO OWE DUE -->
       <div
+        id="monthlyDueStudentList"
         style="
-          margin-top:25px;
-
-          padding-top:8px;
-
-          border-top:
-            1px solid #cbd5e1;
-
-          font-size:10px;
-
-          color:#64748b;
-
-          text-align:right;
+          flex:1;
+          overflow-y:auto;
+          padding-right:2px;
+          max-height:55vh;
         "
       >
-        NS Tuition Collection
+        ${rows}
+      </div>
+
+      <!-- SUMMARY BAR -->
+      <div
+        style="
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          padding:10px 12px;
+          background:#fef2f2;
+          border:1px solid #fecaca;
+          border-radius:10px;
+          margin-top:12px;
+        "
+      >
+        <span style="font-weight:700; font-size:13px; color:#991b1b;">
+          সর্বমোট বকেয়া:
+        </span>
+        <span style="font-weight:800; font-size:16px; color:#dc2626;">
+          ${U.money(totalDue)}
+        </span>
+      </div>
+
+      <!-- ACTION BUTTONS -->
+      <div
+        style="
+          display:flex;
+          justify-content:space-between;
+          gap:8px;
+          margin-top:14px;
+          padding-top:10px;
+          border-top:1px solid #e2e8f0;
+        "
+      >
+        <button
+          type="button"
+          class="btn btn-soft"
+          style="font-size:12px; font-weight:600; padding:8px 12px;"
+          onclick="APP.openDuePrintMenu()"
+        >
+          ⬅ মাসের তালিকা
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-primary"
+          style="font-size:13px; font-weight:700; padding:8px 18px;"
+          onclick="APP.executePrintDueList(${year}, ${month})"
+        >
+          🖨 প্রিন্ট / PDF
+        </button>
       </div>
 
     </div>
+  `);
 
+};
+
+
+// ============================================================
+// EXECUTE PRINT DUE LIST (ANDROID PRINT & BROWSER PRINT)
+// ============================================================
+
+APP.executePrintDueList = function (
+  year,
+  month
+) {
+
+  var dueStudents =
+    this.getMonthlyDueStudents(
+      year,
+      month
+    );
+
+  var totalDue =
+    this.getMonthlyDueTotal(
+      year,
+      month
+    );
+
+  var monthName =
+    U.months[
+      Number(month) - 1
+    ] || "";
+
+  var tableRows =
+    dueStudents.map(
+      function (item, index) {
+        var student = item.student;
+        var info = [];
+        if (student.className) info.push("Class: " + U.esc(student.className));
+        if (student.phone) info.push("Phone: " + U.esc(student.phone));
+
+        return `
+          <tr style="border-bottom:1px solid #e2e8f0;">
+            <td style="padding:7px 5px; text-align:center; font-weight:600; width:35px;">${index + 1}</td>
+            <td style="padding:7px 8px;">
+              <div style="font-weight:700; font-size:14px; color:#0f172a;">${U.esc(student.name || "")}</div>
+              ${info.length ? `<div style="font-size:10px; color:#64748b; margin-top:1px;">${info.join(" • ")}</div>` : ""}
+            </td>
+            <td style="padding:7px 8px; text-align:right; font-size:12px; color:#475569;">${U.money(item.fee)}</td>
+            <td style="padding:7px 8px; text-align:right; font-size:12px; color:#16a34a;">${U.money(item.paid)}</td>
+            <td style="padding:7px 8px; text-align:right; font-weight:800; font-size:14px; color:#dc2626;">${U.money(item.due)}</td>
+          </tr>
+        `;
+      }
+    ).join("");
+
+  var printableHTML = `
+    <!DOCTYPE html>
+    <html lang="bn">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>${U.esc(monthName)} ${year} — বকেয়া তালিকা</title>
+      <style>
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          padding: 24px;
+          font-family: Arial, 'Noto Sans Bengali', sans-serif;
+          color: #0f172a;
+          background: #ffffff;
+        }
+        .header {
+          text-align: center;
+          padding-bottom: 12px;
+          border-bottom: 2px solid #0f172a;
+          margin-bottom: 16px;
+        }
+        .title {
+          font-size: 20px;
+          font-weight: 800;
+          color: #0f172a;
+        }
+        .subtitle {
+          font-size: 13px;
+          color: #475569;
+          margin-top: 4px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 10px;
+        }
+        th {
+          background: #f1f5f9;
+          padding: 8px 6px;
+          font-size: 11px;
+          font-weight: 700;
+          border-bottom: 2px solid #cbd5e1;
+          color: #334155;
+        }
+        .summary-bar {
+          margin-top: 16px;
+          padding: 10px 14px;
+          border-top: 2px solid #0f172a;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 15px;
+          font-weight: 800;
+        }
+        .footer {
+          margin-top: 20px;
+          font-size: 10px;
+          color: #64748b;
+          text-align: right;
+          border-top: 1px solid #e2e8f0;
+          padding-top: 6px;
+        }
+        @media print {
+          @page { margin: 10mm; }
+          body { padding: 0; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="title">Ns Tuition Fee Collection</div>
+        <div class="subtitle">বকেয়া শিক্ষার্থীদের তালিকা — <b>${U.esc(monthName)} ${year}</b></div>
+        <div style="font-size:11px; color:#64748b; margin-top:3px;">তারিখ: ${U.today()}</div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:35px;">নং</th>
+            <th style="text-align:left;">শিক্ষার্থীর নাম</th>
+            <th style="text-align:right; width:70px;">ফি</th>
+            <th style="text-align:right; width:70px;">জমা</th>
+            <th style="text-align:right; width:80px;">বকেয়া</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+        </tbody>
+      </table>
+
+      <div class="summary-bar">
+        <span>মোট বকেয়া শিক্ষার্থী: ${dueStudents.length} জন</span>
+        <span style="color:#dc2626;">সর্বমোট বকেয়া: ${U.money(totalDue)}</span>
+      </div>
+
+      <div class="footer">
+        Ns Tuition Fee Collection • প্রস্তুতের সময়: ${new Date().toLocaleTimeString()}
+      </div>
+    </body>
+    </html>
   `;
 
-
-  // ==========================================================
-  // ANDROID PRINT
-  // ==========================================================
-
+  // 1. Android Print Bridge (if running in Android app APK)
   if (
     window.AndroidPrint &&
-    typeof AndroidPrint.printReceipt ===
-      "function"
+    typeof AndroidPrint.printReceipt === "function"
   ) {
-
-    AndroidPrint.printReceipt(
-      html
-    );
-
-  } else {
-
-    alert(
-      "Print System পাওয়া যায়নি।"
-    );
-
+    AndroidPrint.printReceipt(printableHTML);
+    return;
   }
+
+  // 2. Browser Print Fallback (Web, iframe, preview, desktop)
+  var iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  document.body.appendChild(iframe);
+
+  var doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(printableHTML);
+  doc.close();
+
+  iframe.contentWindow.focus();
+  setTimeout(function () {
+    iframe.contentWindow.print();
+    setTimeout(function () {
+      if (iframe && iframe.parentNode) {
+        iframe.remove();
+      }
+    }, 1500);
+  }, 400);
 
 };

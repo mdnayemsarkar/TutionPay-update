@@ -57,7 +57,7 @@ window.PaymentActions = {
             value="${U.esc(
               student
                 ? student.name
-                : "Unknown"
+                : (p && p.studentName ? p.studentName : "Student")
             )}"
             disabled
           >
@@ -412,7 +412,7 @@ window.PaymentActions = {
               ${U.esc(
                 student
                   ? student.name
-                  : "Unknown"
+                  : (p && p.studentName ? p.studentName : "Student")
               )}
             </b>
 

@@ -101,6 +101,52 @@ window.StudentModule = {
     }) || null;
   },
 
+  /* ----------------------------------------------------------
+     REMOVE / DELETE STUDENT (PRESERVES HISTORICAL PAYMENTS)
+     ---------------------------------------------------------- */
+  remove: function(id) {
+    if (!APP.students || !Array.isArray(APP.students)) {
+      return false;
+    }
+
+    var student = this.get(id);
+    if (!student) {
+      return false;
+    }
+
+    // Preserve student name in all existing historical payment records
+    if (Array.isArray(APP.payments)) {
+      APP.payments.forEach(function(p) {
+        if (String(p.studentId) === String(id)) {
+          if (!p.studentName || !p.studentName.trim()) {
+            p.studentName = student.name;
+          }
+        }
+      });
+    }
+
+    // Remove student from students array
+    var idx = APP.students.findIndex(function(s) {
+      return String(s.id) === String(id);
+    });
+
+    if (idx !== -1) {
+      APP.students.splice(idx, 1);
+    }
+
+    // Clean up per-month/year not studied status
+    if (APP.studentMonthStatus && typeof APP.studentMonthStatus === "object") {
+      var prefix = String(id) + "_";
+      Object.keys(APP.studentMonthStatus).forEach(function(k) {
+        if (k.startsWith(prefix)) {
+          delete APP.studentMonthStatus[k];
+        }
+      });
+    }
+
+    return true;
+  },
+
 
   /* ----------------------------------------------------------
      PAID AMOUNT
@@ -140,14 +186,39 @@ window.StudentModule = {
 
 
   /* ----------------------------------------------------------
+     IS NOT STUDIED
+     ---------------------------------------------------------- */
+  isNotStudied: function(studentId, year, month) {
+    if (window.PaymentModule && typeof PaymentModule.isNotStudied === "function") {
+      return PaymentModule.isNotStudied(studentId, year, month);
+    }
+    var key = String(year) + "-" + String(month);
+    var student = this.get(studentId);
+    if (student) {
+      if (Array.isArray(student.notStudiedMonths)) {
+        return student.notStudiedMonths.indexOf(key) !== -1;
+      }
+      if (student.notStudiedMonths && typeof student.notStudiedMonths === "object") {
+        return !!student.notStudiedMonths[key];
+      }
+    }
+    return false;
+  },
+
+  /* ----------------------------------------------------------
      PAYMENT STATUS
      ---------------------------------------------------------- */
-
   status: function(
     student,
     year,
     month
   ) {
+    if (
+      student &&
+      this.isNotStudied(student.id, year, month)
+    ) {
+      return "এই মাস পড়েনি";
+    }
 
     var paid =
       this.paid(
@@ -311,6 +382,16 @@ window.BatchModule = {
 
     students.forEach(
       function(s) {
+
+        if (
+          StudentModule.isNotStudied(
+            s.id,
+            year,
+            month
+          )
+        ) {
+          return;
+        }
 
         totalFee +=
           Number(s.fee || 0);
@@ -887,9 +968,16 @@ APP.renderStudentListHTML = function(
               style="text-align:right"
             >
 
-              <b>
-                ${U.money(s.fee)}
-              </b>
+              <span
+                style="cursor:pointer; display:inline-flex; align-items:center; gap:3px;"
+                onclick="APP.quickEditFee('${s.id}')"
+                title="মাসিক ফি পরিবর্তন করতে ক্লিক করুন"
+              >
+                <b>
+                  ${U.money(s.fee)}
+                </b>
+                <span style="font-size:10px; color:#38bdf8;">✏</span>
+              </span>
 
 
               <div
@@ -900,7 +988,9 @@ APP.renderStudentListHTML = function(
                       ? "text-green-600"
                       : status === "Partial"
                         ? "text-orange-600"
-                        : "text-red-600"
+                        : status === "এই মাস পড়েনি"
+                          ? "text-slate-500 font-medium"
+                          : "text-red-600"
                   }
                 "
               >
@@ -1607,13 +1697,15 @@ APP.studentModal = function(
       <div>
 
         <label class="label">
-          মাসিক ফি
+          মাসিক ফি (টাকা)
         </label>
 
         <input
           id="stFee"
           class="input"
           type="number"
+          min="0"
+          placeholder="যেমন: 1500 (পরে পরিবর্তনযোগ্য)"
         >
 
       </div>
@@ -2434,15 +2526,163 @@ APP.updateStudent = function(
 
   this.studentProfile(id);
 
+  this.render();
+
+  if (typeof this.showNotification === "function") {
+    this.showNotification(
+      s.name + "-এর তথ্য ও মাসিক ফি (৳" + s.fee + ") সফলভাবে সেভ হয়েছে!"
+    );
+  }
+
 };
 
 
 /* ============================================================
-   DELETE / ARCHIVE STUDENT (PRESERVES HISTORICAL PAYMENTS)
+   QUICK EDIT MONTHLY FEE (ভর্তির পরও সহজে ফি পরিবর্তন)
+   ============================================================ */
+
+APP.quickEditFee = function(id) {
+
+  var s =
+    StudentModule.get(id);
+
+  if (!s) {
+    return;
+  }
+
+  this.modal(`
+    <div style="padding:10px 4px;">
+      <div
+        style="
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          margin-bottom:14px;
+          padding-bottom:8px;
+          border-bottom:1px solid rgba(255,255,255,0.1);
+        "
+      >
+        <div style="font-size:17px; font-weight:800; color:var(--text-primary, #f8fafc);">
+          ✏ মাসিক ফি পরিবর্তন
+        </div>
+        <button
+          type="button"
+          class="btn btn-soft"
+          style="padding:2px 8px; font-size:16px; line-height:1;"
+          onclick="APP.closeModal()"
+        >
+          ×
+        </button>
+      </div>
+
+      <div class="card" style="margin-bottom:14px; padding:12px; background:rgba(255,255,255,0.05);">
+        <div style="font-weight:700; font-size:15px; margin-bottom:4px;">
+          ${U.esc(s.name)}
+        </div>
+        <div style="font-size:12px; opacity:0.85;">
+          বর্তমান মাসিক ফি: <b style="color:#38bdf8;">${U.money(s.fee)}</b>
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label class="label">নতুন মাসিক ফি (টাকা) *</label>
+        <input
+          id="quickNewFee"
+          class="input"
+          type="number"
+          min="0"
+          value="${Number(s.fee || 0)}"
+          placeholder="যেমন: 1500"
+          style="font-size:16px; font-weight:700;"
+        >
+        <div style="font-size:11px; opacity:0.75; margin-top:6px; line-height:1.4;">
+          💡 ভর্তির সময়ে বা পরবর্তীতে যেকোনো সময় ফি পরিবর্তন করা যায়। নতুন ফি অনুযায়ী বকেয়া হিসাব স্বয়ংক্রিয়ভাবে আপডেট হবে।
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button
+          type="button"
+          class="btn btn-soft"
+          style="font-weight:600;"
+          onclick="APP.closeModal()"
+        >
+          বাতিল
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-primary"
+          style="font-weight:700;"
+          onclick="APP.saveQuickFee('${s.id}')"
+        >
+          ✓ ফি সেভ করুন
+        </button>
+      </div>
+    </div>
+  `);
+
+  setTimeout(function() {
+    var el = document.getElementById("quickNewFee");
+    if (el) {
+      el.focus();
+      el.select();
+    }
+  }, 100);
+
+};
+
+
+APP.saveQuickFee = function(id) {
+
+  var s =
+    StudentModule.get(id);
+
+  if (!s) {
+    return;
+  }
+
+  var feeInput =
+    document.getElementById("quickNewFee");
+
+  var newFee =
+    feeInput ? Number(feeInput.value || 0) : 0;
+
+  if (isNaN(newFee) || newFee < 0) {
+    if (typeof this.showNotification === "function") {
+      this.showNotification("⚠️ সঠিক মাসিক ফি দিন");
+    } else {
+      alert("সঠিক মাসিক ফি দিন");
+    }
+    return;
+  }
+
+  s.fee = newFee;
+
+  this.save();
+
+  this.closeModal();
+
+  this.render();
+
+  this.studentProfile(id);
+
+  if (typeof this.showNotification === "function") {
+    this.showNotification(
+      s.name + "-এর মাসিক ফি ৳" + newFee + " আপডেট হয়েছে!"
+    );
+  }
+
+};
+
+
+/* ============================================================
+   DELETE STUDENT (PRESERVES HISTORICAL PAYMENTS)
    ============================================================ */
 
 APP.deleteStudent = function(
-  id
+  id,
+  skipConfirm
 ) {
 
   var student =
@@ -2458,23 +2698,64 @@ APP.deleteStudent = function(
     student.name || "এই Student";
 
 
-  if (
-    !confirm(
-      "⚠️ " +
-      studentName +
-      "\n\n" +
-      "এই Student-কে সক্রিয় তালিকা থেকে সরাতে চান?\n\n" +
-      "পূর্বের সকল Payment History এবং সংগ্রহ অক্ষত থাকবে।"
-    )
-  ) {
-
+  if (skipConfirm) {
+    this.executeDeleteStudent(id);
     return;
   }
 
 
-  student.archived = true;
-  student.archivedAt = U.today();
-  student.batchId = "";
+  // Show custom in-app confirmation modal (avoids browser window.confirm blocking)
+  this.modal(`
+    <div style="text-align:center; padding:12px 6px;">
+      <div style="font-size:38px; line-height:1; margin-bottom:12px;">🗑️</div>
+      <div style="font-size:17px; font-weight:700; color:#0f172a; margin-bottom:8px;">
+        স্টুডেন্ট মুছে ফেলতে চান?
+      </div>
+      <div style="font-size:13px; color:#475569; line-height:1.5; margin-bottom:14px;">
+        আপনি কি নিশ্চিতভাবে <b style="color:#0f172a;">${U.esc(studentName)}</b>-কে মুছে ফেলতে চান?
+      </div>
+      <div style="font-size:12px; color:#15803d; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:8px 10px; margin-bottom:18px; text-align:left; line-height:1.4;">
+        ✓ পূর্বের সকল মাসের এবং বছরের সংগৃহীত মোট টাকার হিসাব অক্ষত ও সুরক্ষিত থাকবে।
+      </div>
+
+      <div style="display:flex; gap:10px; justify-content:center;">
+        <button
+          type="button"
+          class="btn btn-soft"
+          style="flex:1; height:40px; font-size:13px; font-weight:600;"
+          onclick="APP.closeModal()"
+        >
+          বাতিল
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-danger"
+          style="flex:1; height:40px; font-size:13px; font-weight:700;"
+          onclick="APP.executeDeleteStudent('${id}')"
+        >
+          🗑️ মুছে ফেলুন
+        </button>
+      </div>
+    </div>
+  `);
+
+};
+
+
+APP.executeDeleteStudent = function(
+  id
+) {
+
+  var student =
+    StudentModule.get(id);
+
+  var studentName =
+    student ? (student.name || "Student") : "Student";
+
+
+  // Call StudentModule.remove to safely retain all payments while deleting student
+  StudentModule.remove(id);
 
 
   this.save();
@@ -2482,6 +2763,61 @@ APP.deleteStudent = function(
   this.closeModal();
 
   this.render();
+
+  this.showNotification(
+    studentName + " সফলভাবে মুছে ফেলা হয়েছে।"
+  );
+
+};
+
+
+APP.showNotification = function(
+  message
+) {
+
+  if (!document || !document.createElement || !document.body) {
+    return;
+  }
+
+  var existing =
+    document.getElementById(
+      "app-notification-toast"
+    );
+
+  if (existing) {
+    existing.remove();
+  }
+
+  var toast =
+    document.createElement("div");
+
+  toast.id =
+    "app-notification-toast";
+
+  toast.style.cssText =
+    "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);" +
+    "background:#0f172a;color:#ffffff;padding:10px 18px;border-radius:10px;" +
+    "font-size:13px;font-weight:600;box-shadow:0 10px 25px -5px rgba(0,0,0,0.3);" +
+    "z-index:99999;display:flex;align-items:center;gap:8px;";
+
+  toast.innerHTML =
+    "<span>✓</span> <span>" +
+    U.esc(message) +
+    "</span>";
+
+  document.body.appendChild(toast);
+
+  setTimeout(function() {
+    if (toast && toast.parentNode) {
+      toast.style.opacity = "0";
+      toast.style.transition = "opacity 0.3s ease";
+      setTimeout(function() {
+        if (toast && toast.parentNode) {
+          toast.remove();
+        }
+      }, 300);
+    }
+  }, 3000);
 
 };
 
@@ -2625,12 +2961,21 @@ APP.studentProfile = function(
           );
 
 
-        var due =
-          Math.max(
-            0,
-            Number(s.fee || 0) -
-            paid
+        var isNotStudied =
+          StudentModule.isNotStudied(
+            s.id,
+            y,
+            month
           );
+
+        var due =
+          isNotStudied
+            ? 0
+            : Math.max(
+                0,
+                Number(s.fee || 0) -
+                paid
+              );
 
 
         var status =
@@ -2684,29 +3029,78 @@ APP.studentProfile = function(
 
     <div
       class="card mt-3"
+      style="
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        flex-wrap:wrap;
+      "
     >
 
-      <b>
-        ${U.esc(s.name)}
-      </b>
+      <div>
+
+        <b style="font-size:16px;">
+          ${U.esc(s.name)}
+        </b>
+
+        <div
+          class="text-xs text-slate-500 mt-1"
+        >
+
+          ${
+            s.className
+              ? "শ্রেণি: " + U.esc(s.className) + " • "
+              : ""
+          }
+
+          ${
+            s.phone
+              ? U.esc(s.phone)
+              : ""
+          }
+
+          ${
+            batch
+              ? " • 📚 " +
+                U.esc(batch.name)
+              : ""
+          }
+
+        </div>
+
+      </div>
 
 
       <div
-        class="text-xs text-slate-500 mt-1"
+        style="
+          display:flex;
+          align-items:center;
+          gap:10px;
+        "
       >
 
-        ${
-          s.phone
-            ? U.esc(s.phone)
-            : ""
-        }
+        <div style="text-align:right;">
 
-        ${
-          batch
-            ? " • 📚 " +
-              U.esc(batch.name)
-            : ""
-        }
+          <div style="font-size:11px; opacity:0.75; font-weight:600;">
+            মাসিক ফি
+          </div>
+
+          <div style="font-size:16px; font-weight:800; color:#38bdf8;">
+            ${U.money(s.fee)}
+          </div>
+
+        </div>
+
+        <button
+          type="button"
+          class="btn btn-soft"
+          style="padding:6px 10px; font-size:11px; font-weight:700;"
+          onclick="APP.quickEditFee('${s.id}')"
+          title="মাসিক ফি পরিবর্তন করুন"
+        >
+          ✏ ফি এডিট
+        </button>
 
       </div>
 

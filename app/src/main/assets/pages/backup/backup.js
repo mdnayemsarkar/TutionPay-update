@@ -33,7 +33,11 @@
 
             payments: Array.isArray(APP.payments)
               ? APP.payments
-              : []
+              : [],
+
+            studentMonthStatus: (APP.studentMonthStatus && typeof APP.studentMonthStatus === "object")
+              ? APP.studentMonthStatus
+              : {}
 
           };
         }
@@ -77,7 +81,9 @@
 
         students: [],
 
-        payments: []
+        payments: [],
+
+        studentMonthStatus: {}
 
       };
     },
@@ -121,7 +127,12 @@
         payments:
           Array.isArray(db.payments)
             ? db.payments
-            : []
+            : [],
+
+        studentMonthStatus:
+          (db.studentMonthStatus && typeof db.studentMonthStatus === "object")
+            ? db.studentMonthStatus
+            : {}
 
       };
     },
@@ -1486,7 +1497,12 @@
           students,
 
         payments:
-          payments
+          payments,
+
+        studentMonthStatus:
+          (source.studentMonthStatus && typeof source.studentMonthStatus === "object")
+            ? source.studentMonthStatus
+            : {}
 
       };
     },
@@ -1567,7 +1583,10 @@
               db.students,
 
             payments:
-              db.payments
+              db.payments,
+
+            studentMonthStatus:
+              db.studentMonthStatus || {}
 
           });
 
@@ -1595,6 +1614,9 @@
 
           APP.payments =
             db.payments;
+
+          APP.studentMonthStatus =
+            db.studentMonthStatus || {};
         }
 
 
