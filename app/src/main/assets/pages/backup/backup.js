@@ -2207,16 +2207,14 @@
             <button
               type="button"
               onclick="APP.back()"
+              class="btn btn-soft"
               style="
                 width:40px;
                 height:40px;
-                border:none;
                 border-radius:12px;
-                background:#ffffff;
-                color:#0f172a;
                 font-size:22px;
-                box-shadow:0 2px 8px rgba(15,23,42,.08);
                 cursor:pointer;
+                padding:0;
               "
               aria-label="Back"
             >
@@ -2224,22 +2222,22 @@
             </button>
 
 
-            <div>
+            <div style="flex:1;">
 
               <div
                 style="
                   font-size:20px;
                   font-weight:800;
-                  color:#0f172a;
+                  color:inherit;
                 "
               >
                 Backup & Restore
               </div>
 
               <div
+                class="text-slate-500"
                 style="
                   font-size:12px;
-                  color:#64748b;
                   margin-top:2px;
                 "
               >
@@ -2247,6 +2245,16 @@
               </div>
 
             </div>
+
+            <button
+              type="button"
+              class="btn btn-soft"
+              style="padding:6px 11px; font-size:12px; font-weight:700; border-radius:10px;"
+              onclick="APP.toggleTheme()"
+              title="থিম পরিবর্তন"
+            >
+              ${APP.getTheme && APP.getTheme() === 'light' ? '🌙 ডার্ক' : '☀️ লাইট'}
+            </button>
 
           </div>
 

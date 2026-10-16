@@ -789,13 +789,16 @@ APP.renderBatchStudents = function(batchId) {
 
 
           '<div ' +
-            'style="font-weight:800"' +
+            'style="font-weight:800; cursor:pointer;" ' +
+            'onclick="if(APP.quickEditFee){APP.quickEditFee(\'' + U.esc(student.id) + '\')}else if(APP.editStudent){APP.editStudent(\'' + U.esc(student.id) + '\')}" ' +
+            'title="মাসিক ফি পরিবর্তন করতে ক্লিক করুন"' +
           '>' +
 
             'Fee: ' +
             U.money(
               student.fee
             ) +
+            ' <span style="font-size:10px; color:#38bdf8;">✏</span>' +
 
           '</div>' +
 

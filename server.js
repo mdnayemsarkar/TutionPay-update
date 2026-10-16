@@ -19,48 +19,85 @@ const MIME_TYPES = {
   ".txt": "text/plain; charset=UTF-8"
 };
 
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception in dev server:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled rejection in dev server:", reason);
+});
+
 const server = http.createServer((req, res) => {
-  let reqPath = decodeURIComponent(req.url.split("?")[0]);
-  if (reqPath === "/" || reqPath === "") {
-    reqPath = "/index.html";
-  }
+  try {
+    let rawPath = req.url ? req.url.split("?")[0] : "/";
+    let reqPath;
+    try {
+      reqPath = decodeURIComponent(rawPath);
+    } catch {
+      reqPath = rawPath;
+    }
 
-  const filePath = path.join(ASSETS_DIR, reqPath);
+    if (reqPath === "/" || reqPath === "") {
+      reqPath = "/index.html";
+    }
 
-  // Prevent directory traversal
-  if (!filePath.startsWith(ASSETS_DIR)) {
-    res.statusCode = 403;
-    res.end("Forbidden");
-    return;
-  }
+    const filePath = path.join(ASSETS_DIR, reqPath);
 
-  fs.stat(filePath, (err, stats) => {
-    if (err || !stats.isFile()) {
-      // Fallback to index.html for SPA-style routing if applicable
-      const indexFallback = path.join(ASSETS_DIR, "index.html");
-      fs.readFile(indexFallback, (err2, data) => {
-        if (err2) {
-          res.statusCode = 404;
-          res.end("Not Found");
-        } else {
-          res.writeHead(200, { "Content-Type": "text/html; charset=UTF-8" });
-          res.end(data);
-        }
-      });
+    // Prevent directory traversal
+    if (!filePath.startsWith(ASSETS_DIR)) {
+      res.statusCode = 403;
+      res.end("Forbidden");
       return;
     }
 
-    const ext = path.extname(filePath).toLowerCase();
-    const contentType = MIME_TYPES[ext] || "application/octet-stream";
+    fs.stat(filePath, (err, stats) => {
+      if (err || !stats.isFile()) {
+        const indexFallback = path.join(ASSETS_DIR, "index.html");
+        fs.readFile(indexFallback, (err2, data) => {
+          if (err2) {
+            res.statusCode = 404;
+            res.end("Not Found");
+          } else {
+            res.writeHead(200, { "Content-Type": "text/html; charset=UTF-8" });
+            res.end(data);
+          }
+        });
+        return;
+      }
 
-    res.writeHead(200, {
-      "Content-Type": contentType,
-      "Cache-Control": "no-cache"
+      const ext = path.extname(filePath).toLowerCase();
+      const contentType = MIME_TYPES[ext] || "application/octet-stream";
+
+      res.writeHead(200, {
+        "Content-Type": contentType,
+        "Cache-Control": "no-cache"
+      });
+
+      const stream = fs.createReadStream(filePath);
+      stream.on("error", (streamErr) => {
+        console.error("Stream read error:", streamErr);
+        if (!res.headersSent) {
+          res.statusCode = 500;
+        }
+        res.end();
+      });
+      stream.pipe(res);
     });
+  } catch (handlerErr) {
+    console.error("Handler error:", handlerErr);
+    if (!res.headersSent) {
+      res.statusCode = 500;
+    }
+    res.end("Internal Server Error");
+  }
+});
 
-    const stream = fs.createReadStream(filePath);
-    stream.pipe(res);
-  });
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.log(`Port ${PORT} is already in use, reusing existing listener`);
+  } else {
+    console.error("Server error:", err);
+  }
 });
 
 server.listen(PORT, HOST, () => {

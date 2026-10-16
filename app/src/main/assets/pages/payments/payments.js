@@ -1439,12 +1439,16 @@ APP.paymentStudentListHTML = function(
 
 
             <div
-              class="payment-money-box">
+              class="payment-money-box"
+              style="cursor:pointer;"
+              onclick="if(APP.quickEditFee){APP.quickEditFee('${s.id}')}else if(APP.editStudent){APP.editStudent('${s.id}')}"
+              title="মাসিক ফি পরিবর্তন করতে ক্লিক করুন">
 
               <div
-                class="payment-money-label">
+                class="payment-money-label"
+                style="display:flex; align-items:center; justify-content:center; gap:3px;">
 
-                Fee
+                Fee <span style="font-size:10px; color:#38bdf8;">✏</span>
 
               </div>
 
@@ -1758,45 +1762,61 @@ APP.paymentModal = function(studentId, targetMonth, targetYear) {
       </div>
 
 
+      <input type="hidden" id="pSourceContext" value="${U.esc(targetYear && typeof targetYear === 'object' ? (targetYear.sourceContext || '') : '')}">
+
       <div>
 
         <label class="label">
-          মাস
+          মাস ও বছর
         </label>
 
 
-        <select
-          id="pMonth"
-          class="select"
-          onchange="APP.updatePaymentModalDue()">
+        <div style="display:flex; gap:6px;">
+
+          <select
+            id="pMonth"
+            class="select"
+            style="flex:1;"
+            onchange="APP.updatePaymentModalDue()">
 
 
-          ${U.months.map(function(m, i) {
+            ${U.months.map(function(m, i) {
 
-            var selected =
-              (i + 1) === activeMonth;
-
-
-            return `
-
-              <option
-                value="${i + 1}"
-                ${
-                  selected
-                    ? "selected"
-                    : ""
-                }>
-
-                ${m}
-
-              </option>
-
-            `;
-
-          }).join("")}
+              var selected =
+                (i + 1) === activeMonth;
 
 
-        </select>
+              return `
+
+                <option
+                  value="${i + 1}"
+                  ${
+                    selected
+                      ? "selected"
+                      : ""
+                  }>
+
+                  ${m}
+
+                </option>
+
+              `;
+
+            }).join("")}
+
+
+          </select>
+
+          <input
+            id="pYear"
+            class="input"
+            type="number"
+            value="${activeYear}"
+            style="width:84px; text-align:center; font-weight:700;"
+            onchange="APP.updatePaymentModalDue()"
+            title="শিক্ষাবর্ষ">
+
+        </div>
 
       </div>
 
@@ -1875,12 +1895,13 @@ APP.paymentModal = function(studentId, targetMonth, targetYear) {
 APP.updatePaymentModalDue = function() {
   var sEl = document.getElementById("pStudent");
   var mEl = document.getElementById("pMonth");
+  var yEl = document.getElementById("pYear");
   var aEl = document.getElementById("pAmount");
   if (!sEl || !aEl) return;
 
   var sid = sEl.value;
   var m = mEl ? Number(mEl.value) : ((APP.settings && APP.settings.month) || 1);
-  var y = (APP.settings && APP.settings.year) || new Date().getFullYear();
+  var y = yEl && yEl.value ? Number(yEl.value) : ((APP.settings && APP.settings.year) || new Date().getFullYear());
 
   if (sid) {
     var st = StudentModule.get(sid);
@@ -1913,11 +1934,19 @@ APP.savePayment = function() {
     1
   );
 
+  var yEl = document.getElementById("pYear");
+  var payYear = (yEl && yEl.value)
+    ? Number(yEl.value)
+    : (APP.selectedYear || (APP.settings && APP.settings.year) || new Date().getFullYear());
+
   var aEl = document.getElementById("pAmount");
   var amount = Number((aEl && aEl.value) || 0);
 
   var cEl = document.getElementById("pComment");
   var comment = cEl ? cEl.value.trim() : "";
+
+  var srcEl = document.getElementById("pSourceContext");
+  var sourceContext = srcEl ? srcEl.value : "";
 
 
   if (!studentId) {
@@ -1940,20 +1969,16 @@ APP.savePayment = function() {
   }
 
 
-  var d = new Date(date);
   var student = StudentModule.get(studentId);
-  var payYear = (d && !isNaN(d.getFullYear()))
-    ? d.getFullYear()
-    : ((APP.settings && APP.settings.year) || new Date().getFullYear());
 
   var newPayment = {
     id: U.id(),
     studentId: studentId,
     studentName: student ? student.name : "",
-    year: payYear,
-    month: month,
+    year: Number(payYear),
+    month: Number(month),
     date: date,
-    amount: amount,
+    amount: Number(amount),
     comment: comment
   };
 
@@ -1975,26 +2000,26 @@ APP.savePayment = function() {
 
   APP.render();
 
+  var monthName = U.months[month - 1] || "";
   if (typeof APP.showNotification === "function") {
-    APP.showNotification("Payment সফলভাবে সেভ হয়েছে! (৳" + amount + ")");
+    APP.showNotification((student ? student.name : "Student") + "-এর " + monthName + " মাসের বকেয়া (৳" + amount + ") সফলভাবে জমা হয়েছে!");
   }
 
 
-  setTimeout(function() {
-
-    if (
-      window.ReceiptModule &&
-      typeof ReceiptModule.open ===
-        "function"
-    ) {
-
-      ReceiptModule.open(
-        newPayment.id
-      );
-
-    }
-
-  }, 150);
+  if (sourceContext === "printDueList" && typeof APP.printMonthlyDueList === "function") {
+    setTimeout(function() {
+      APP.printMonthlyDueList(payYear, month);
+    }, 180);
+  } else {
+    setTimeout(function() {
+      if (
+        window.ReceiptModule &&
+        typeof ReceiptModule.open === "function"
+      ) {
+        ReceiptModule.open(newPayment.id);
+      }
+    }, 150);
+  }
 
 };
 

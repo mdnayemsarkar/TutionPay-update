@@ -61,11 +61,23 @@ window.APP.home = function () {
   this.shell(`
 
     <!-- =====================================================
-         DASHBOARD TITLE
+         DASHBOARD TITLE & THEME TOGGLE
          ===================================================== -->
 
-    <div class="text-xl font-extrabold mb-3">
-      ড্যাশবোর্ড
+    <div class="flex items-center justify-between mb-3">
+      <div class="text-xl font-extrabold" style="letter-spacing:-0.2px;">
+        ড্যাশবোর্ড
+      </div>
+
+      <button
+        type="button"
+        class="btn btn-soft"
+        style="padding:6px 12px; font-size:12px; font-weight:700; border-radius:10px;"
+        onclick="APP.toggleTheme()"
+        title="ডার্ক / লাইট মোড পরিবর্তন"
+      >
+        ${this.getTheme() === "light" ? "🌙 ডার্ক মোড" : "☀️ লাইট মোড"}
+      </button>
     </div>
 
 
@@ -78,32 +90,12 @@ window.APP.home = function () {
          ===================================================== -->
 
     <div
-      class="card mt-3"
+      class="card hero-card mt-3"
       style="
         position:relative;
         overflow:hidden;
-        border:none;
-        color:#ffffff;
         padding:20px;
-        border-radius:22px;
-
-        background:
-          radial-gradient(
-            circle at 88% 8%,
-            rgba(255,255,255,.24) 0%,
-            rgba(255,255,255,.08) 22%,
-            transparent 48%
-          ),
-          linear-gradient(
-            135deg,
-            #1d4ed8 0%,
-            #2563eb 42%,
-            #4f46e5 100%
-          );
-
-        box-shadow:
-          0 12px 28px rgba(37,99,235,.22),
-          0 4px 10px rgba(15,23,42,.08);
+        border-radius:20px;
       "
     >
 
@@ -628,7 +620,9 @@ window.APP.home = function () {
 
 APP.paymentFor = function (id) {
 
-  if (!this.students || !this.students.length) {
+  var students = (this && this.students) || APP.students || [];
+
+  if (!students.length) {
     return;
   }
 
@@ -655,7 +649,7 @@ APP.paymentFor = function (id) {
   );
 
   // Open payment modal with pre-selected student, month, year, and pre-filled due amount
-  this.paymentModal(id, curMonth, curYear);
+  this.paymentModal(id, curMonth, curYear, "homeDue");
 
 };
 
@@ -679,7 +673,8 @@ APP.openDuePrintMenu = function () {
 
   var year =
     Number(
-      this.settings.year
+      (this.settings && this.settings.year) ||
+      new Date().getFullYear()
     );
 
 
@@ -692,6 +687,8 @@ APP.openDuePrintMenu = function () {
         justify-content:space-between;
         gap:10px;
         margin-bottom:14px;
+        padding-bottom:10px;
+        border-bottom:1px solid rgba(56, 189, 248, 0.2);
       "
     >
 
@@ -699,9 +696,10 @@ APP.openDuePrintMenu = function () {
 
         <div
           style="
-            font-size:20px;
+            font-size:18px;
             font-weight:800;
-            color:#0f172a;
+            color:#38bdf8;
+            text-shadow:0 0 14px rgba(56, 189, 248, 0.5);
           "
         >
           🖨 মাসভিত্তিক বকেয়া লিস্ট
@@ -711,19 +709,20 @@ APP.openDuePrintMenu = function () {
         <div
           style="
             font-size:12px;
-            color:#64748b;
-            margin-top:4px;
+            color:#94a3b8;
+            margin-top:3px;
           "
         >
-          ${year} সালের যে মাসের বকেয়া লিস্ট প্রয়োজন,
-          সেই মাসের Print চাপুন।
+          ${year} সালের যে মাসের বকেয়া তালিকা প্রয়োজন, সেই মাসের Print চাপুন।
         </div>
 
       </div>
 
 
       <button
+        type="button"
         class="btn btn-soft"
+        style="padding:3px 9px; font-size:16px; line-height:1;"
         onclick="APP.closeModal()"
       >
         ×
@@ -734,8 +733,9 @@ APP.openDuePrintMenu = function () {
 
     <div
       style="
-        max-height:70vh;
+        max-height:68vh;
         overflow-y:auto;
+        padding-right:2px;
       "
     >
 
@@ -770,6 +770,8 @@ APP.openDuePrintMenu = function () {
               style="
                 margin-bottom:8px;
                 padding:12px;
+                background:rgba(15, 23, 42, 0.72);
+                border:1px solid rgba(255, 255, 255, 0.08);
               "
             >
 
@@ -793,6 +795,7 @@ APP.openDuePrintMenu = function () {
                     style="
                       font-weight:800;
                       font-size:15px;
+                      color:#f8fafc;
                     "
                   >
                     ${monthName} ${year}
@@ -802,19 +805,20 @@ APP.openDuePrintMenu = function () {
                   <div
                     style="
                       font-size:12px;
-                      color:#64748b;
                       margin-top:3px;
                     "
                   >
 
                     ${
                       dueStudents.length
-                        ? (
-                            dueStudents.length +
-                            " জন • বকেয়া " +
-                            U.money(dueTotal)
-                          )
-                        : "কোনো বকেয়া নেই"
+                        ? `
+                            <span style="color:#fb7185; font-weight:700;">
+                              ${dueStudents.length} জন বকেয়া
+                            </span>
+                            <span style="color:#94a3b8;"> • মোট বকেয়া: </span>
+                            <b style="color:#fb7185;">${U.money(dueTotal)}</b>
+                          `
+                        : `<span style="color:#34d399; font-weight:600;">✓ কোনো বকেয়া নেই</span>`
                     }
 
                   </div>
@@ -823,7 +827,9 @@ APP.openDuePrintMenu = function () {
 
 
                 <button
+                  type="button"
                   class="btn btn-primary"
+                  style="padding:6px 14px; font-size:12px; font-weight:700;"
                   onclick="
                     APP.printMonthlyDueList(
                       ${year},
@@ -850,24 +856,21 @@ APP.openDuePrintMenu = function () {
       style="
         margin-top:12px;
         padding:10px 12px;
-        background:#f8fafc;
+        background:rgba(56, 189, 248, 0.08);
         border-radius:12px;
-        border:1px solid #e2e8f0;
+        border:1px solid rgba(56, 189, 248, 0.2);
         font-size:12px;
-        color:#64748b;
+        color:#94a3b8;
         line-height:1.5;
       "
     >
 
-      <b>নোট:</b>
-      যে Student পুরো টাকা দেয়নি,
-      তার শুধুমাত্র অবশিষ্ট বকেয়া টাকা
-      তালিকায় দেখানো হবে।
+      <b style="color:#38bdf8;">💡 তথ্য:</b>
+      Print-এ চাপলে কারা কারা পে করেনি তাদের সম্পূর্ণ নাম, বকেয়া টাকার পরিমাণ ও বিস্তারিত তালিকা দেখতে এবং সরাসরি প্রিন্ট/PDF করতে পারবেন।
 
     </div>
 
   `;
-
 
   this.modal(html);
 
@@ -891,16 +894,29 @@ APP.getMonthlyDueStudents = function (
 ) {
 
   var list = [];
+  var students = (this && this.students) || APP.students || [];
 
-
-  (this.students || []).forEach(
+  students.forEach(
     function (student) {
+
+      if (student.archived) {
+        return;
+      }
+
+      var isNotStudied = StudentModule.isNotStudied(
+        student.id,
+        year,
+        month
+      );
+
+      if (isNotStudied) {
+        return;
+      }
 
       var fee =
         Number(
           student.fee || 0
         );
-
 
       var paid =
         StudentModule.paid(
@@ -909,13 +925,11 @@ APP.getMonthlyDueStudents = function (
           month
         );
 
-
       var due =
         Math.max(
           0,
           fee - paid
         );
-
 
       var status =
         StudentModule.status(
@@ -924,11 +938,10 @@ APP.getMonthlyDueStudents = function (
           month
         );
 
-
+      // যারা পে করেনি
       if (
         status !== "Paid" &&
-        status !== "এই মাস পড়েনি" &&
-        due > 0
+        status !== "এই মাস পড়েনি"
       ) {
 
         list.push({
@@ -954,7 +967,6 @@ APP.getMonthlyDueStudents = function (
 
     }
   );
-
 
   return list;
 
@@ -1051,10 +1063,10 @@ APP.printMonthlyDueList = function (
     this.modal(`
       <div style="text-align:center; padding:25px 12px;">
         <div style="font-size:44px; line-height:1; margin-bottom:12px;">🎉</div>
-        <div style="font-size:18px; font-weight:800; color:#0f172a; margin-bottom:6px;">
+        <div style="font-size:18px; font-weight:800; color:#34d399; margin-bottom:6px; text-shadow:0 0 14px rgba(52,211,153,0.4);">
           ${U.esc(monthName)} ${year} — কোনো বকেয়া নেই
         </div>
-        <div style="font-size:13px; color:#64748b; margin-bottom:20px;">
+        <div style="font-size:13px; color:#94a3b8; margin-bottom:20px;">
           এই মাসে সকল শিক্ষার্থীর ফি পরিশোধিত রয়েছে।
         </div>
         <button
@@ -1073,7 +1085,7 @@ APP.printMonthlyDueList = function (
 
 
   // ==========================================================
-  // ROWS OF STUDENTS WHO HAVE NOT PAID
+  // ROWS OF STUDENTS WHO HAVE NOT PAID (কারা পে করেনি)
   // ==========================================================
 
   var rows =
@@ -1085,12 +1097,12 @@ APP.printMonthlyDueList = function (
 
         var classText =
           student.className
-            ? "Class: " + U.esc(student.className)
+            ? "ক্লাস: " + U.esc(student.className)
             : "";
 
         var phoneText =
           student.phone
-            ? "ফোন: " + U.esc(student.phone)
+            ? "মোবাইল: " + U.esc(student.phone)
             : "";
 
         var meta = [classText, phoneText].filter(Boolean).join(" • ");
@@ -1102,23 +1114,24 @@ APP.printMonthlyDueList = function (
               align-items:center;
               justify-content:space-between;
               gap:10px;
-              padding:10px 6px;
-              border-bottom:1px solid #f1f5f9;
+              padding:11px 8px;
+              border-bottom:1px solid rgba(255, 255, 255, 0.08);
             "
           >
-            <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+            <div style="display:flex; align-items:center; gap:9px; min-width:0; flex:1;">
               <span
                 style="
                   display:inline-block;
                   width:24px;
                   height:24px;
                   line-height:24px;
-                  background:#f1f5f9;
-                  color:#475569;
-                  border-radius:6px;
+                  background:rgba(56, 189, 248, 0.15);
+                  color:#38bdf8;
+                  border:1px solid rgba(56, 189, 248, 0.3);
+                  border-radius:7px;
                   text-align:center;
-                  font-size:12px;
-                  font-weight:700;
+                  font-size:11px;
+                  font-weight:800;
                   flex-shrink:0;
                 "
               >
@@ -1126,20 +1139,21 @@ APP.printMonthlyDueList = function (
               </span>
 
               <div style="min-width:0; flex:1;">
-                <div style="font-weight:700; font-size:14px; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                <div style="font-weight:700; font-size:14px; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                   ${U.esc(student.name || "")}
                 </div>
-                ${meta ? `<div style="font-size:11px; color:#64748b; margin-top:1px;">${meta}</div>` : ""}
-                <div style="font-size:11px; color:#64748b; margin-top:2px;">
-                  ফি: ${U.money(item.fee)} • জমা: <span style="color:#16a34a; font-weight:600;">${U.money(item.paid)}</span>
+                ${meta ? `<div style="font-size:11px; color:#94a3b8; margin-top:2px;">${meta}</div>` : ""}
+                <div style="font-size:11px; color:#94a3b8; margin-top:2px;">
+                  ফি: <span style="color:#cbd5e1; font-weight:600;">${U.money(item.fee)}</span>
+                  ${item.paid > 0 ? ` • জমা: <span style="color:#34d399; font-weight:600;">${U.money(item.paid)}</span>` : ""}
                 </div>
               </div>
             </div>
 
             <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
               <div style="text-align:right;">
-                <div style="font-size:10px; color:#dc2626; font-weight:600; text-transform:uppercase;">বকেয়া</div>
-                <div style="font-size:15px; font-weight:800; color:#dc2626; line-height:1.2;">
+                <div style="font-size:10px; color:#fb7185; font-weight:700; text-transform:uppercase;">বকেয়া</div>
+                <div style="font-size:15px; font-weight:800; color:#fb7185; line-height:1.2; text-shadow:0 0 10px rgba(244,63,94,0.4);">
                   ${U.money(item.due)}
                 </div>
               </div>
@@ -1147,8 +1161,8 @@ APP.printMonthlyDueList = function (
               <button
                 type="button"
                 class="btn btn-primary"
-                style="padding:4px 8px; font-size:11px; font-weight:700; height:28px; line-height:20px;"
-                onclick="APP.paymentModal('${student.id}', ${month}, ${year})"
+                style="padding:5px 10px; font-size:11px; font-weight:700; height:30px; line-height:18px;"
+                onclick="APP.paymentModal('${student.id}', ${month}, ${year}, 'printDueList')"
                 title="এই বকেয়া পে করুন"
               >
                 💰 Pay
@@ -1174,17 +1188,17 @@ APP.printMonthlyDueList = function (
           align-items:flex-start;
           justify-content:space-between;
           gap:10px;
-          margin-bottom:10px;
+          margin-bottom:12px;
           padding-bottom:10px;
-          border-bottom:1px solid #e2e8f0;
+          border-bottom:1px solid rgba(56, 189, 248, 0.25);
         "
       >
         <div>
-          <div style="font-size:17px; font-weight:800; color:#0f172a;">
-            📋 ${U.esc(monthName)} ${year} — বকেয়া তালিকা
+          <div style="font-size:17px; font-weight:800; color:#38bdf8; text-shadow:0 0 12px rgba(56, 189, 248, 0.5);">
+            📋 ${U.esc(monthName)} ${year} — বকেয়া তালিকা (যারা পে করেনি)
           </div>
-          <div style="font-size:12px; color:#64748b; margin-top:3px;">
-            মোট বকেয়া শিক্ষার্থী: <b style="color:#0f172a;">${dueStudents.length} জন</b> • মোট বকেয়া: <b style="color:#dc2626;">${U.money(totalDue)}</b>
+          <div style="font-size:12px; color:#94a3b8; margin-top:3px;">
+            মোট বকেয়া শিক্ষার্থী: <b style="color:#f8fafc;">${dueStudents.length} জন</b> • মোট বকেয়া: <b style="color:#fb7185;">${U.money(totalDue)}</b>
           </div>
         </div>
 
@@ -1217,17 +1231,18 @@ APP.printMonthlyDueList = function (
           display:flex;
           align-items:center;
           justify-content:space-between;
-          padding:10px 12px;
-          background:#fef2f2;
-          border:1px solid #fecaca;
-          border-radius:10px;
+          padding:10px 14px;
+          background:rgba(244, 63, 94, 0.12);
+          border:1px solid rgba(244, 63, 94, 0.3);
+          border-radius:12px;
           margin-top:12px;
+          box-shadow:0 0 12px rgba(244, 63, 94, 0.15);
         "
       >
-        <span style="font-weight:700; font-size:13px; color:#991b1b;">
+        <span style="font-weight:700; font-size:13px; color:#fb7185;">
           সর্বমোট বকেয়া:
         </span>
-        <span style="font-weight:800; font-size:16px; color:#dc2626;">
+        <span style="font-weight:800; font-size:16px; color:#fb7185; text-shadow:0 0 12px rgba(244,63,94,0.5);">
           ${U.money(totalDue)}
         </span>
       </div>
@@ -1240,13 +1255,13 @@ APP.printMonthlyDueList = function (
           gap:8px;
           margin-top:14px;
           padding-top:10px;
-          border-top:1px solid #e2e8f0;
+          border-top:1px solid rgba(255, 255, 255, 0.08);
         "
       >
         <button
           type="button"
           class="btn btn-soft"
-          style="font-size:12px; font-weight:600; padding:8px 12px;"
+          style="font-size:12px; font-weight:600; padding:8px 14px;"
           onclick="APP.openDuePrintMenu()"
         >
           ⬅ মাসের তালিকা
@@ -1255,10 +1270,10 @@ APP.printMonthlyDueList = function (
         <button
           type="button"
           class="btn btn-primary"
-          style="font-size:13px; font-weight:700; padding:8px 18px;"
+          style="font-size:13px; font-weight:700; padding:8px 20px;"
           onclick="APP.executePrintDueList(${year}, ${month})"
         >
-          🖨 প্রিন্ট / PDF
+          🖨 প্রিন্ট / PDF রিপোর্ট
         </button>
       </div>
 
@@ -1304,14 +1319,14 @@ APP.executePrintDueList = function (
 
         return `
           <tr style="border-bottom:1px solid #e2e8f0;">
-            <td style="padding:7px 5px; text-align:center; font-weight:600; width:35px;">${index + 1}</td>
-            <td style="padding:7px 8px;">
+            <td style="padding:8px 6px; text-align:center; font-weight:600; width:35px;">${index + 1}</td>
+            <td style="padding:8px 8px;">
               <div style="font-weight:700; font-size:14px; color:#0f172a;">${U.esc(student.name || "")}</div>
-              ${info.length ? `<div style="font-size:10px; color:#64748b; margin-top:1px;">${info.join(" • ")}</div>` : ""}
+              ${info.length ? `<div style="font-size:10px; color:#64748b; margin-top:2px;">${info.join(" • ")}</div>` : ""}
             </td>
-            <td style="padding:7px 8px; text-align:right; font-size:12px; color:#475569;">${U.money(item.fee)}</td>
-            <td style="padding:7px 8px; text-align:right; font-size:12px; color:#16a34a;">${U.money(item.paid)}</td>
-            <td style="padding:7px 8px; text-align:right; font-weight:800; font-size:14px; color:#dc2626;">${U.money(item.due)}</td>
+            <td style="padding:8px 8px; text-align:right; font-size:12px; color:#475569;">${U.money(item.fee)}</td>
+            <td style="padding:8px 8px; text-align:right; font-size:12px; color:#16a34a;">${U.money(item.paid)}</td>
+            <td style="padding:8px 8px; text-align:right; font-weight:800; font-size:14px; color:#dc2626;">${U.money(item.due)}</td>
           </tr>
         `;
       }
@@ -1429,29 +1444,23 @@ APP.executePrintDueList = function (
     return;
   }
 
-  // 2. Browser Print Fallback (Web, iframe, preview, desktop)
-  var iframe = document.createElement("iframe");
-  iframe.style.position = "fixed";
-  iframe.style.right = "0";
-  iframe.style.bottom = "0";
-  iframe.style.width = "0";
-  iframe.style.height = "0";
-  iframe.style.border = "0";
-  document.body.appendChild(iframe);
+  // 2. Browser Print Direct / Fallback (Web, iframe, preview, desktop)
+  var existing = document.getElementById("activeDuePrintArea");
+  if (existing) {
+    existing.remove();
+  }
 
-  var doc = iframe.contentWindow.document;
-  doc.open();
-  doc.write(printableHTML);
-  doc.close();
+  var printDiv = document.createElement("div");
+  printDiv.id = "activeDuePrintArea";
+  printDiv.innerHTML = printableHTML;
+  document.body.appendChild(printDiv);
 
-  iframe.contentWindow.focus();
+  window.print();
+
   setTimeout(function () {
-    iframe.contentWindow.print();
-    setTimeout(function () {
-      if (iframe && iframe.parentNode) {
-        iframe.remove();
-      }
-    }, 1500);
-  }, 400);
+    if (printDiv && printDiv.parentNode) {
+      printDiv.remove();
+    }
+  }, 2500);
 
 };

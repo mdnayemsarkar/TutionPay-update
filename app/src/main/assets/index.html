@@ -9,7 +9,7 @@
     content="width=device-width,initial-scale=1,maximum-scale=1"
   >
 
-  <meta name="theme-color" content="#2563eb">
+  <meta name="theme-color" content="#070b14">
 
   <title>Ns Tuition Fee Collection</title>
 
@@ -17,10 +17,23 @@
     rel="stylesheet"
     href="css/tailwind.css"
   >
+
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("app_theme") || "dark";
+        if (t === "light") {
+          document.documentElement.classList.add("light-theme");
+        } else {
+          document.documentElement.classList.add("dark-neon");
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 
 
-<body class="bg-slate-50 text-slate-800">
+<body class="dark-neon">
 
   <!-- ======================================================
        MAIN APP CONTAINER

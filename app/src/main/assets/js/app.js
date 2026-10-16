@@ -70,6 +70,71 @@ window.APP = {
 
 
   // ==========================================================
+  // THEME MANAGEMENT (DARK & LIGHT)
+  // ==========================================================
+
+  getTheme() {
+    try {
+      var stored = localStorage.getItem("app_theme");
+      if (stored === "light" || stored === "dark") {
+        return stored;
+      }
+    } catch (e) {}
+
+    if (this.settings && (this.settings.theme === "light" || this.settings.theme === "dark")) {
+      return this.settings.theme;
+    }
+
+    return "dark";
+  },
+
+  applyTheme(theme) {
+    var current = theme || this.getTheme();
+    var isLight = current === "light";
+
+    if (isLight) {
+      document.body.classList.remove("dark-neon");
+      document.body.classList.add("light-theme");
+      document.documentElement.classList.remove("dark-neon");
+      document.documentElement.classList.add("light-theme");
+    } else {
+      document.body.classList.remove("light-theme");
+      document.body.classList.add("dark-neon");
+      document.documentElement.classList.remove("light-theme");
+      document.documentElement.classList.add("dark-neon");
+    }
+
+    var metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+      metaTheme.setAttribute("content", isLight ? "#2563eb" : "#070b14");
+    }
+  },
+
+  toggleTheme() {
+    var current = this.getTheme();
+    var next = current === "light" ? "dark" : "light";
+
+    try {
+      localStorage.setItem("app_theme", next);
+    } catch (e) {}
+
+    if (this.settings) {
+      this.settings.theme = next;
+      this.save();
+    }
+
+    this.applyTheme(next);
+    this.render();
+
+    if (typeof this.showNotification === "function") {
+      this.showNotification(
+        next === "light" ? "☀️ লাইট মোড চালু হয়েছে" : "🌙 ডার্ক মোড চালু হয়েছে"
+      );
+    }
+  },
+
+
+  // ==========================================================
   // NAVIGATION
   // ==========================================================
 
@@ -237,19 +302,54 @@ window.APP = {
             </div>
 
 
-            <button
-              class="btn"
+            <div
               style="
-                background:rgba(255,255,255,.16);
-                color:#fff;
-                border:1px solid rgba(255,255,255,.16);
-                backdrop-filter:blur(8px);
-                -webkit-backdrop-filter:blur(8px);
+                display:flex;
+                align-items:center;
+                gap:8px;
               "
-              onclick="APP.backup()"
             >
-              ⋮
-            </button>
+
+              <button
+                type="button"
+                class="btn"
+                style="
+                  background:rgba(255,255,255,.18);
+                  color:#fff;
+                  border:1px solid rgba(255,255,255,.24);
+                  backdrop-filter:blur(8px);
+                  -webkit-backdrop-filter:blur(8px);
+                  font-size:12px;
+                  font-weight:700;
+                  padding:6px 11px;
+                  border-radius:10px;
+                "
+                onclick="APP.toggleTheme()"
+                title="${(this.getTheme && this.getTheme() === 'light') ? 'ডার্ক মোড' : 'লাইট মোড'}"
+                aria-label="Toggle Theme"
+              >
+                ${(this.getTheme && this.getTheme() === 'light') ? '🌙 ডার্ক' : '☀️ লাইট'}
+              </button>
+
+              <button
+                type="button"
+                class="btn"
+                style="
+                  background:rgba(255,255,255,.16);
+                  color:#fff;
+                  border:1px solid rgba(255,255,255,.16);
+                  backdrop-filter:blur(8px);
+                  -webkit-backdrop-filter:blur(8px);
+                  padding:6px 10px;
+                  border-radius:10px;
+                "
+                onclick="APP.backup()"
+                title="ব্যাকআপ ও সেটিংস"
+              >
+                ⋮
+              </button>
+
+            </div>
 
           </div>
 
@@ -1021,6 +1121,8 @@ window.APP = {
 
     }
 
+
+    this.applyTheme(this.getTheme());
 
     this.render();
   }

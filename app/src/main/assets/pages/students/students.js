@@ -2541,7 +2541,7 @@ APP.updateStudent = function(
    QUICK EDIT MONTHLY FEE (ভর্তির পরও সহজে ফি পরিবর্তন)
    ============================================================ */
 
-APP.quickEditFee = function(id) {
+APP.quickEditFee = function(id, fromProfile) {
 
   var s =
     StudentModule.get(id);
@@ -2569,7 +2569,7 @@ APP.quickEditFee = function(id) {
           type="button"
           class="btn btn-soft"
           style="padding:2px 8px; font-size:16px; line-height:1;"
-          onclick="APP.closeModal()"
+          onclick="${fromProfile ? `APP.studentProfile('${id}')` : 'APP.closeModal()'}"
         >
           ×
         </button>
@@ -2605,7 +2605,7 @@ APP.quickEditFee = function(id) {
           type="button"
           class="btn btn-soft"
           style="font-weight:600;"
-          onclick="APP.closeModal()"
+          onclick="${fromProfile ? `APP.studentProfile('${id}')` : 'APP.closeModal()'}"
         >
           বাতিল
         </button>
@@ -2614,7 +2614,7 @@ APP.quickEditFee = function(id) {
           type="button"
           class="btn btn-primary"
           style="font-weight:700;"
-          onclick="APP.saveQuickFee('${s.id}')"
+          onclick="APP.saveQuickFee('${s.id}', ${fromProfile ? 'true' : 'false'})"
         >
           ✓ ফি সেভ করুন
         </button>
@@ -2633,7 +2633,7 @@ APP.quickEditFee = function(id) {
 };
 
 
-APP.saveQuickFee = function(id) {
+APP.saveQuickFee = function(id, fromProfile) {
 
   var s =
     StudentModule.get(id);
@@ -2665,7 +2665,9 @@ APP.saveQuickFee = function(id) {
 
   this.render();
 
-  this.studentProfile(id);
+  if (fromProfile) {
+    this.studentProfile(id);
+  }
 
   if (typeof this.showNotification === "function") {
     this.showNotification(
@@ -2708,13 +2710,13 @@ APP.deleteStudent = function(
   this.modal(`
     <div style="text-align:center; padding:12px 6px;">
       <div style="font-size:38px; line-height:1; margin-bottom:12px;">🗑️</div>
-      <div style="font-size:17px; font-weight:700; color:#0f172a; margin-bottom:8px;">
+      <div style="font-size:17px; font-weight:700; color:#f8fafc; margin-bottom:8px;">
         স্টুডেন্ট মুছে ফেলতে চান?
       </div>
-      <div style="font-size:13px; color:#475569; line-height:1.5; margin-bottom:14px;">
-        আপনি কি নিশ্চিতভাবে <b style="color:#0f172a;">${U.esc(studentName)}</b>-কে মুছে ফেলতে চান?
+      <div style="font-size:13px; color:#cbd5e1; line-height:1.5; margin-bottom:14px;">
+        আপনি কি নিশ্চিতভাবে <b style="color:#38bdf8;">${U.esc(studentName)}</b>-কে মুছে ফেলতে চান?
       </div>
-      <div style="font-size:12px; color:#15803d; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:8px 10px; margin-bottom:18px; text-align:left; line-height:1.4;">
+      <div style="font-size:12px; color:#34d399; background:rgba(16, 185, 129, 0.12); border:1px solid rgba(52, 211, 153, 0.3); border-radius:10px; padding:10px 12px; margin-bottom:18px; text-align:left; line-height:1.4; box-shadow:0 0 12px rgba(52,211,153,0.15);">
         ✓ পূর্বের সকল মাসের এবং বছরের সংগৃহীত মোট টাকার হিসাব অক্ষত ও সুরক্ষিত থাকবে।
       </div>
 
@@ -3096,7 +3098,7 @@ APP.studentProfile = function(
           type="button"
           class="btn btn-soft"
           style="padding:6px 10px; font-size:11px; font-weight:700;"
-          onclick="APP.quickEditFee('${s.id}')"
+          onclick="APP.quickEditFee('${s.id}', true)"
           title="মাসিক ফি পরিবর্তন করুন"
         >
           ✏ ফি এডিট
