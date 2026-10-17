@@ -183,14 +183,14 @@ body, body.dark-neon {
   max-width: 760px;
   margin: auto;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
 }
 
 .nav button {
   border: 0;
   background: transparent !important;
   color: #94a3b8 !important;
-  padding: 10px 4px 11px;
+  padding: 8px 2px 9px;
   font-size: 11px;
   transition: all 0.2s ease;
 }

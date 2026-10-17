@@ -37,6 +37,9 @@ window.APP = {
       reports:
         this.reports,
 
+      notes:
+        this.notesPage,
+
       backup:
         this.backup,
 
@@ -66,6 +69,17 @@ window.APP = {
   save() {
 
     Store.save(this);
+  },
+
+
+  // ==========================================================
+  // NOTES & CHECKLIST PAGE
+  // ==========================================================
+
+  notesPage() {
+    if (window.NotesModule && typeof NotesModule.render === "function") {
+      NotesModule.render();
+    }
   },
 
 
@@ -374,6 +388,8 @@ window.APP = {
       ["payments", "💰", "Payments"],
 
       ["students", "👨‍🎓", "Students"],
+
+      ["notes", "📝", "Notes"],
 
       ["reports", "📊", "Reports"]
 
@@ -1118,6 +1134,18 @@ window.APP = {
     ) {
 
       this.studentMonthStatus = {};
+
+    }
+
+    if (!Array.isArray(this.notes)) {
+
+      this.notes = [];
+
+    }
+
+    if (!Array.isArray(this.noteLists)) {
+
+      this.noteLists = [];
 
     }
 

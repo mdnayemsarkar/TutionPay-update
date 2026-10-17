@@ -446,6 +446,37 @@ window.APP.home = function () {
 
 
       <!-- ===================================================
+           NOTES & CHECKLIST
+           =================================================== -->
+
+      <button
+        class="quick-action"
+        onclick="APP.go('notes')"
+      >
+
+        <span class="quick-icon">
+          📝
+        </span>
+
+
+        <span>
+
+          <b>
+            Notes
+          </b>
+
+          <br>
+
+          <small class="text-slate-500">
+            নোট ও চেকলিস্ট
+          </small>
+
+        </span>
+
+      </button>
+
+
+      <!-- ===================================================
            BACKUP
            =================================================== -->
 
@@ -1440,27 +1471,54 @@ APP.executePrintDueList = function (
     window.AndroidPrint &&
     typeof AndroidPrint.printReceipt === "function"
   ) {
+    if (typeof APP.showNotification === "function") {
+      APP.showNotification("প্রিন্ট পাঠানো হয়েছে...");
+    }
     AndroidPrint.printReceipt(printableHTML);
     return;
   }
 
   // 2. Browser Print Direct / Fallback (Web, iframe, preview, desktop)
-  var existing = document.getElementById("activeDuePrintArea");
-  if (existing) {
-    existing.remove();
+  if (typeof APP.showNotification === "function") {
+    APP.showNotification("প্রিন্ট প্রস্তুত হচ্ছে...");
   }
 
-  var printDiv = document.createElement("div");
-  printDiv.id = "activeDuePrintArea";
-  printDiv.innerHTML = printableHTML;
-  document.body.appendChild(printDiv);
-
-  window.print();
-
-  setTimeout(function () {
-    if (printDiv && printDiv.parentNode) {
-      printDiv.remove();
+  try {
+    var oldIframe = document.getElementById("activeDuePrintIframe");
+    if (oldIframe) {
+      oldIframe.remove();
     }
-  }, 2500);
 
+    var iframe = document.createElement("iframe");
+    iframe.id = "activeDuePrintIframe";
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.style.visibility = "hidden";
+    document.body.appendChild(iframe);
+
+    var doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(printableHTML);
+    doc.close();
+
+    setTimeout(function () {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (err) {
+        window.print();
+      }
+      setTimeout(function () {
+        if (iframe && iframe.parentNode) {
+          iframe.remove();
+        }
+      }, 3500);
+    }, 400);
+  } catch (err) {
+    window.print();
+  }
 };

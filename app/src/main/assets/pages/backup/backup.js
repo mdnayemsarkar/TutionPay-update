@@ -132,7 +132,17 @@
         studentMonthStatus:
           (db.studentMonthStatus && typeof db.studentMonthStatus === "object")
             ? db.studentMonthStatus
-            : {}
+            : {},
+
+        notes:
+          Array.isArray(db.notes)
+            ? db.notes
+            : [],
+
+        noteLists:
+          Array.isArray(db.noteLists)
+            ? db.noteLists
+            : []
 
       };
     },
@@ -243,7 +253,11 @@
         payments:
           Array.isArray(backup.payments)
             ? backup.payments.length
-            : 0
+            : 0,
+
+        notes:
+          (Array.isArray(backup.notes) ? backup.notes.length : 0) +
+          (Array.isArray(backup.noteLists) ? backup.noteLists.length : 0)
 
       };
     },
@@ -1484,6 +1498,20 @@
           ? source.payments
           : [];
 
+      var notes =
+        Array.isArray(
+          source.notes
+        )
+          ? source.notes
+          : [];
+
+      var noteLists =
+        Array.isArray(
+          source.noteLists
+        )
+          ? source.noteLists
+          : [];
+
 
       return {
 
@@ -1498,6 +1526,12 @@
 
         payments:
           payments,
+
+        notes:
+          notes,
+
+        noteLists:
+          noteLists,
 
         studentMonthStatus:
           (source.studentMonthStatus && typeof source.studentMonthStatus === "object")
@@ -1535,6 +1569,10 @@
         var batchCount =
           db.batches.length;
 
+        var noteCount =
+          (db.notes ? db.notes.length : 0) +
+          (db.noteLists ? db.noteLists.length : 0);
+
 
         var message =
           "Backup restore করলে বর্তমান data replace হবে।\n\n" +
@@ -1549,6 +1587,10 @@
 
           "Batch: " +
           batchCount +
+          "\n" +
+
+          "Notes & Lists: " +
+          noteCount +
           "\n\n" +
 
           "আপনি কি Restore করতে চান?";
@@ -1585,6 +1627,12 @@
             payments:
               db.payments,
 
+            notes:
+              db.notes || [],
+
+            noteLists:
+              db.noteLists || [],
+
             studentMonthStatus:
               db.studentMonthStatus || {}
 
@@ -1614,6 +1662,13 @@
 
           APP.payments =
             db.payments;
+
+          APP.notes =
+            db.notes || [];
+
+          APP.noteLists =
+            db.noteLists || [];
+
 
           APP.studentMonthStatus =
             db.studentMonthStatus || {};
@@ -2262,46 +2317,61 @@
           <!-- Statistics -->
 
           <div
-            class="grid grid-3 gap-2"
             style="
+              display:grid;
+              grid-template-columns:repeat(4, 1fr);
+              gap:8px;
               margin-bottom:14px;
             "
           >
 
-            <div class="card stat">
+            <div class="card stat" style="padding:10px 8px; text-align:center;">
 
-              <div class="statlabel">
+              <div class="statlabel" style="font-size:10px;">
                 Student
               </div>
 
-              <div class="statvalue">
+              <div class="statvalue" style="font-size:18px;">
                 ${stats.students}
               </div>
 
             </div>
 
 
-            <div class="card stat">
+            <div class="card stat" style="padding:10px 8px; text-align:center;">
 
-              <div class="statlabel">
+              <div class="statlabel" style="font-size:10px;">
                 Payment
               </div>
 
-              <div class="statvalue">
+              <div class="statvalue" style="font-size:18px;">
                 ${stats.payments}
               </div>
 
             </div>
 
 
-            <div class="card stat">
+            <div class="card stat" style="padding:10px 8px; text-align:center;">
 
-              <div class="statlabel">
+              <div class="statlabel" style="font-size:10px;">
                 Batch
               </div>
 
-              <div class="statvalue">
+              <div class="statvalue" style="font-size:18px;">
                 ${stats.batches}
+              </div>
+
+            </div>
+
+
+            <div class="card stat" style="padding:10px 8px; text-align:center;">
+
+              <div class="statlabel" style="font-size:10px;">
+                Notes
+              </div>
+
+              <div class="statvalue" style="font-size:18px; color:#38bdf8;">
+                ${stats.notes || 0}
               </div>
 
             </div>
@@ -2322,7 +2392,6 @@
               style="
                 font-size:17px;
                 font-weight:800;
-                color:#0f172a;
                 margin-bottom:5px;
               "
             >

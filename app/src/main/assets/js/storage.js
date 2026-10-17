@@ -67,6 +67,23 @@ window.Store = {
 
 
         // --------------------------------------------------
+        // NOTES & CHECKLIST DATA
+        // --------------------------------------------------
+
+        if (!Array.isArray(db.notes)) {
+
+          db.notes = [];
+
+        }
+
+        if (!Array.isArray(db.noteLists)) {
+
+          db.noteLists = [];
+
+        }
+
+
+        // --------------------------------------------------
         // AUTO CURRENT MONTH / YEAR
         // --------------------------------------------------
         // অ্যাপ চালু হলে ফোনের বর্তমান
@@ -143,6 +160,10 @@ window.Store = {
       students: [],
 
       payments: [],
+
+      notes: [],
+
+      noteLists: [],
 
       studentMonthStatus: {}
 
